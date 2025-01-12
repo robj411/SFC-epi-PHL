@@ -1,0 +1,335 @@
+---
+title: "Towards combined epidemiological and economic dynamical systems"
+#date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  bookdown::pdf_document2: 
+    toc: false
+    keep_tex: yes
+    citation_package: natbib
+    extra_dependencies: ["float"]
+    # extra_dependencies: ["flafter"]
+    pandoc_args:
+      --filter=pandoc-xnos
+    number_sections: true
+    fig_caption: yes
+    includes:
+      # in_header: "preamble.tex"
+  bookdown::github_document2:
+    # pandoc_args: --webtex
+    toc: true
+    toc_depth: 5
+    toc_float: true
+    number_sections: true
+  bookdown::word_document2: 
+    toc_depth: 5
+    toc_float: true
+    number_sections: true
+    editor_options: 
+      chunk_output_type: inline
+bibliography: 
+  - "DAEDALUS.bib"
+header-includes:
+always_allow_html: true
+---
+
+This document describes some combined epi-econ models, starting with DAEDALUS, and then moving onto SFC-epi models. 
+
+Code examples are taken and adapted from https://github.com/marcoverpas/Italy-SFC-Model and https://github.com/marcoverpas/Six_lectures_on_sfc_models.
+
+```{r setup, include=FALSE}
+library(ggplot2)  
+library(knitr)     
+library(tidyr)
+library(dplyr)
+library(stringi)
+library(gplots)
+library(RColorBrewer)
+library(data.table)
+library(splines)
+library(bookdown)
+library(pander)
+library(haven)
+library(viridis)
+library(hrbrthemes)
+library(MASS)
+library(kableExtra)
+library(wbstats)
+library("cowplot")
+library(latex2exp)
+
+
+panderOptions('round',2)
+panderOptions('table.split.table', Inf)
+
+knitr::opts_chunk$set(comment=NA, prompt=FALSE, cache=FALSE, echo=F, results='asis')
+
+format_to_print <- function(x,z=-1){
+  formatC(round(x,z), format="f", digits=as.numeric(z>0), big.mark=",")
+}
+
+decimalplaces <- function(x) {
+    if ((x %% 1) != 0) {
+        nchar(strsplit(sub('0+$', '', as.character(format(x,scientific = F))), ".", fixed=TRUE)[[1]][[2]])
+    } else {
+        return(0)
+    }
+}
+
+format_to_print2 <- function(x,z=2){
+    v <- signif(x,z)
+    sapply(v, function(i)  formatC(i, format="f", digits=decimalplaces(i), big.mark=","))
+}
+
+```
+
+
+
+# DAEDALUS
+
+Originally designed of for the UK [@Haw2020] and since applied to Indonesia [@Johnson2023]. The econ model is static. The industrial sectors of the economy are used to stratify the population in the epi model, in which there are contacts related to sector of work and consumption. 
+
+In response to an outbreak, closures are mandated, resulting in operations in each sector reducing to some percentage. In the model, GVA reduces to the same percentage, and so does attendance of places of work and consumption, which scales contacts made and subsequently disease transmission.
+
+The population is static: it does not grow, and no one changes sector of work. The non-working group remains non-working. The workforce in place includes a fraction who work from home and therefore contribute to GVA but not infections from workplace interactions.
+
+See https://github.com/robj411/p2_drivers for a recent presentation.
+
+
+```{tikz dae, fig.cap = "Daedalus model. Mandated closures reduce both infections and workforce in place.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+
+\begin{tikzpicture}
+  [shorten <=2pt,shorten >=4pt,>=stealth]
+\node[latent,draw=black] (wip){Workforce in place};
+\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ (N sectors)} {none}; 
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
+\node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
+\node[latent,draw=black,below of=hosp] (death){Deaths};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(inf) (hosp) (death)} {Epi} {none}; 
+\node[latent,draw=black,left of=wip, xshift=4cm, yshift=3cm] (ld){Mandated closures};
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (ld) edge[bend left=30]  (wip.north east);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (ld) edge[bend right=40]  (inf.west);
+\end{tikzpicture}
+```
+
+
+# SFC-epi
+
+We will use an SFC model in place of GVA by sector. The SFC model is dynamic in time, meaning impacts can accumulate, and is demand driven, meaning we can model autonomous behaviour changes that will have impacts on both the economy and the epidemic. 
+
+At present we compute the "propensity to consume/work" which scales the contacts in the epi model and feeds into the econ model. It might be better to precompute the counterfactual (without epidemic) consumption and labour, and:
+
+1. compute scaled parameters using epi variable(s) and response function;
+2. solve econ model to get consumption and labour;
+3. scale contacts with the same ratio as consumption and labour have to the no-epidemic counterfactual at the same time point
+
+NB: the model assumes an impact on the general population (i.e. both susceptibles and infectious change their behaviour). Lack of consumption and work from people who are already sick _because_ they are sick is not modelled. This could be included explicitly by e.g. setting the proportion of non-diseased people as the upper bound to propensities.
+
+```{r,fig.cap='Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases.',echo=F,warning=F,message=F, out.width="50%"}
+
+knitr::include_graphics(path = "figures/response.png")
+
+```
+
+## Consumption
+
+```{tikz consumption, fig.cap = "Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA and new infections.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+
+\begin{tikzpicture}
+  [shorten <=2pt,shorten >=4pt,>=stealth]
+\node[latent,draw=black] (wip){Workforce in place};
+\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
+\node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
+\node[latent,draw=black,below of=hosp] (death){Deaths};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
+\node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
+\draw [-|,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\draw [-|,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
+\end{tikzpicture}
+```
+
+
+
+The first step is to model consumption as a function of the epidemic, e.g. the number of cases, hospitalisations or deaths. The epidemic variable modifies the "propensity to consume" parameters (often labelled $\alpha$). We scale propensity to consume and exposure-related activities by the same amount. 
+
+
+```{r,fig.cap='Results for PC model with consumption reduction alongside counterfactual epi and econ curves without integration.',echo=F,warning=F,message=F, out.width="80%"}
+
+knitr::include_graphics(path = "figures/pc_plot.png")
+
+```
+
+## Labour supply
+
+```{tikz labour, fig.cap = "Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+
+\begin{tikzpicture}
+  [shorten <=2pt,shorten >=4pt,>=stealth]
+\node[latent,draw=black] (wip){Workforce in place};
+\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
+\node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
+\node[latent,draw=black,below of=hosp] (death){Deaths};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
+\node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
+\node[latent,draw=black,below of=ptc] (ptw){Propensity to work};
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend left=50]  (wip.south west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend right=50]  (inf.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptw.north east);
+\end{tikzpicture}
+
+
+```
+
+Next, we model reduction in propensity to work in the same way. 
+
+However, this should ultimately depend also on the need for income, meaning that (a) lower income people are more likely to work, (b) people are more likely to work as time goes on and they've spent some months with less income, and (c) we can later mitigate these effects to some extent with government transfers.
+
+This version of the model (with spontaneous consumption and labour change) can be used to model an unmitigated epidemic: that is, an epidemic where there are no government interventions, but the population can choose infection-avoiding behaviours, which will dampen both the epidemic and the economy. This is an important gap in current epi modelling. We usually assume either no behaviour change, so that unmitigated epidemics have huge death tolls (e.g. UK COVID projection), or that uncosted (free) population behaviour change will curb the excesses of the epidemic (CEPI work).
+
+
+## Mandated closures
+
+```{tikz mandate, fig.cap = "Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+
+\begin{tikzpicture}
+  [shorten <=2pt,shorten >=4pt,>=stealth]
+\node[latent,draw=black] (wip){Workforce in place};
+\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
+\node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
+\node[latent,draw=black,below of=hosp] (death){Deaths};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
+\node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
+\node[latent,draw=black,below of=ptc] (ptw){Propensity to work};
+\node[latent,draw=black,below of=ptw,xshift=5cm] (mandate){Mandated closures};
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend left=50]  (wip.south west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend right=50]  (inf.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptw.east);
+\draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptc.east);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptw.north east);
+\end{tikzpicture}
+
+```
+
+Next we want to introduce the ability for the government to mandate closures. This might be modelled as e.g. a maximum labour demand, expressed as a percentage of counterfactual labour demand. 
+
+Propose a worked example, such as "how would we model a mandate that the hospitality sector closes?"
+
+
+
+## Government transfers
+
+```{tikz transfers, fig.cap = "Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work. Government transfers increase consumption and reduce propensity to work.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+
+\begin{tikzpicture}
+  [shorten <=2pt,shorten >=4pt,>=stealth]
+\node[latent,draw=black] (wip){Workforce in place};
+\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
+\node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
+\node[latent,draw=black,below of=hosp] (death){Deaths};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
+\node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
+\node[latent,draw=black,below of=ptc] (ptw){Propensity to work};
+\node[latent,draw=black,below of=ptw,xshift=-5cm] (trans){Transfers};
+\node[latent,draw=black,below of=ptw,xshift=5cm] (mandate){Mandated closures};
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend left=50]  (wip.south west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend right=50]  (inf.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [line,-{Bar[length=0mm, width=4mm]}] (trans) edge[bend left=10]  (ptw.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (trans) edge[bend left=10]  (ptc.west);
+\draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptw.east);
+\draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptc.east);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
+\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptw.north east);
+\end{tikzpicture}
+
+
+
+```
+
+
+We should introduce government transfers to demonstrate that mandated closures are only sustainable for as long as the population is supported to forego income in order to stop the spread of infection.
+
+## Other (important) things to consider
+
+- international trade, esp. tourism
+- structural changes over time?
+- move to online consumption
+
+
+
+# Epidemic model
+
+I propose that, for the epidemic model, we remain as consistent as possible with DAEDALUS:
+
+- four age groups (pre-school age, school-age children, working age, retirement age)
+- working-age people stratified by something: definitely working/not working, potentially something sector, occupation or SES related
+- seven disease states (S, E, I (symptomatic/asymptomatic), R, H, D)
+- no vaccination or waning, for simplicity
+- leave school closures out for now, for simplicity
+- outputs from the econ model parametrise the function $k_{j}^{1}$
+
+## Ordinary differential equations
+
+\begin{align}
+\frac{dS_{j}}{dt} & = - k_{j}^{1}(t)S_{j}  \\
+\frac{dE_{j}}{dt} & = k_{j}^{1}(t)S_{j} - (k^2+k^4)E_{j} \\
+\frac{dI_{j}^a}{dt} & = k^2E_{j} - k^3I_{j}^a \\
+\frac{dI_{j}^s}{dt} & = k^4E_{j} - (k_{j}^{5}+k_{j}^{6})I_{j}^s \\
+\frac{dR_{j}}{dt} & = k^3I_{j}^a + k_{j}^{5}I_{j}^s + k_{j}^{7}(t) H_{j}\\
+\frac{dH_{j}}{dt} & = k_{j}^{6}I_{j}^s - (k_{j}^{7}(t) + k_{j}^{8}(t)) H_{j} \\
+\frac{dD_{j}}{dt} & =  k_{j}^{8}(t) H_{j}
+\end{align}
+
+
+
+
+## Disease state transitions
+
+```{tikz statetransitions, fig.cap = "Disease state transitions. $S$: susceptible. $E$: exposed. $I^{a}$: asymptomatic infectious. $I^{s}$: symptomatic infectious. $H$: in need of hospitalisation. $R$: recovered. $D$: died. $j$: stratum.", fig.ext = 'png',echo=F, out.width="50%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+
+\tikzstyle{plate caption} = [caption, node distance=0, inner sep=0pt,below left=5pt and 0pt of #1.south east] %
+
+
+\begin{tikzpicture}[line cap=round,line join=round,>=triangle 45,x=1cm,y=1cm]
+    \node[diseasestate] (S) {$S_{j}$} ; %
+    \node[diseasestate, right=of S] (E1) {$E_{j}$} ; %
+    \node[diseasestate, right=of E1] (L1) {$I_{j}^{s}$} ; %
+    \node[diseasestate, above=of L1] (L2) {$I_{j}^{a}$} ; %
+    \node[diseasestate, below=of L1] (I1) {$H_{j}$} ; %
+    \node[diseasestate, right=of L1] (R) {$R_{j}$} ; %
+    \node[diseasestate, right=of I1] (D) {$D_{j}$} ; %
+    \draw [arrow] (S) -- node [above] {$k^{1}_{j}(t)$} (E1);
+    \draw [arrow] (E1) -- node [above] {$k^4$} (L1);
+    \draw [arrow] (E1) -- node [above] {$k^2$} (L2);
+    \draw [arrow] (L1) -- node [left] {$k^{6}_{j}$} (I1);
+    \draw [arrow] (L1) -- node [above] {$k^{5}_{j}$} (R);
+    \draw [arrow] (L2) edge[bend left=10] node [above] (T6) {$k^3$} (R);
+    \draw [arrow] (I1) -- node [right] {$k^{7}_{j}(t)$} (R);
+    \draw [arrow] (I1) -- node [above] {$k^{8}_{j}(t)$} (D);
+   \plate[inner sep=0.25cm, yshift=0.12cm] {plate3} {(S) (L2) (D)} {$j\in\{1,...,m_J\}$} {none}; 
+\end{tikzpicture}
+```
+
+# References
+

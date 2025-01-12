@@ -1,0 +1,50 @@
+\usetikzlibrary{shapes}
+\usetikzlibrary{fit}
+\usetikzlibrary{arrows}
+\usetikzlibrary{positioning,arrows.meta}
+\tikzset{
+  block/.style={rectangle, draw, fill=red!40, text width=6em,
+  text centered, rounded corners, minimum height=3em},
+  arrow/.style={-{Stealth[]}}
+}
+\tikzstyle{plate} = [draw, rectangle, rounded corners, fit=#1]
+\tikzstyle{wrap} = [inner sep=0pt, fit=#1]
+\tikzstyle{caption} = [font=\footnotesize, node distance=0] %
+\tikzstyle{plate caption} = [caption, node distance=0, inner sep=0pt,below right=0pt and 0pt of #1.north west] %
+\tikzstyle{factor caption} = [caption] %
+\tikzstyle{every label} += [caption] %
+\newcommand{\plate}[5][]{ %
+  \node[wrap=#3,#1] (#2-wrap) {}; % draw box round #3, called #2, with parameters #1
+  \node[plate caption=#2-wrap] (#2-caption) {#4}; % fit caption
+  \node[fill=#5,plate=(#2-wrap)(#2-caption)] (#2) {}; % draw (used to have #1)
+  \node[plate caption=#2-wrap] () {#4}; % fit caption
+}
+\tikzstyle{latent} = [rectangle, rounded corners,fill=white,draw=white,inner sep=2pt,
+  minimum size=20pt, font=\fontsize{10}{10}\selectfont,align=left]
+
+% \tikzstyle{plate caption} = [caption, node distance=0, inner sep=0pt,below left=5pt and 0pt of #1.south east] %
+
+% \newcommand{\plate}[4][]{ %
+%   \node[wrap=#3,#1] (#2-wrap) {}; % draw box round #3, called #2, with parameters #1
+%   \node[plate caption=#2-wrap] (#2-caption) {#4}; % fit caption
+%   \node[plate=(#2-wrap)(#2-caption)] (#2) {}; % draw (used to have #1)
+% }
+
+\tikzstyle{diseasestate} = [circle,fill=white,draw=black,inner sep=1pt,
+  minimum size=15pt, font=\fontsize{10}{10}\selectfont, node distance=1]
+
+
+\tikzset{line/.style={draw, thick, -latex'}}
+
+\tikzset{
+  regulations/.cd,
+  act/.style={-{Stealth}}, % Style for activation
+  rep/.style={-{Bar}}, % Style for repression
+} 
+
+% Command for regulations (both activation and repression, default activation)
+\newcommand{\regulationarrow}[1][act]{%
+  \tikz[baseline] {\draw[regulations/#1] (0,0.5ex) --++ (1.5em,0);}%
+}
+
+

@@ -9,8 +9,7 @@ Towards combined epidemiological and economic dynamical systems
   - [2.2 Labour supply](#22-labour-supply)
   - [2.3 Mandated closures](#23-mandated-closures)
   - [2.4 Government transfers](#24-government-transfers)
-  - [2.5 Other (important) things to
-    consider](#25-other-important-things-to-consider)
+  - [2.5 Other things to consider](#25-other-things-to-consider)
 - [3 Epidemic model](#3-epidemic-model)
   - [3.1 Ordinary differential
     equations](#31-ordinary-differential-equations)
@@ -120,7 +119,7 @@ activities by the same amount.
 
 <div class="figure">
 
-<img src="figures/pc_plot.png" alt="Results for PC model with consumption reduction alongside counterfactual epi and econ curves without integration." width="50%" />
+<img src="figures/pc_plot.png" alt="Results for PC model with consumption reduction alongside counterfactual epi and econ curves without integration." width="80%" />
 
 <p class="caption">
 
@@ -212,7 +211,7 @@ We should introduce government transfers to demonstrate that mandated
 closures are only sustainable for as long as the population is supported
 to forego income in order to stop the spread of infection.
 
-## 2.5 Other (important) things to consider
+## 2.5 Other things to consider
 
 - international trade, esp. tourism
 - structural changes over time?
@@ -220,8 +219,7 @@ to forego income in order to stop the spread of infection.
 
 # 3 Epidemic model
 
-I propose that, for the epidemic model, we remain as consistent as
-possible with DAEDALUS:
+The epidemic model is similar to DAEDALUS:
 
 - four age groups (pre-school age, school-age children, working age,
   retirement age)

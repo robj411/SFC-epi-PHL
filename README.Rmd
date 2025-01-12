@@ -2,6 +2,12 @@
 title: "Towards combined epidemiological and economic dynamical systems"
 #date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
+  bookdown::github_document2:
+    # pandoc_args: --webtex
+    toc: true
+    toc_depth: 5
+    toc_float: true
+    number_sections: true
   bookdown::pdf_document2: 
     toc: false
     keep_tex: yes
@@ -14,12 +20,6 @@ output:
     fig_caption: yes
     includes:
       # in_header: "preamble.tex"
-  bookdown::github_document2:
-    # pandoc_args: --webtex
-    toc: true
-    toc_depth: 5
-    toc_float: true
-    number_sections: true
   bookdown::word_document2: 
     toc_depth: 5
     toc_float: true
@@ -270,7 +270,7 @@ Propose a worked example, such as "how would we model a mandate that the hospita
 
 We should introduce government transfers to demonstrate that mandated closures are only sustainable for as long as the population is supported to forego income in order to stop the spread of infection.
 
-## Other (important) things to consider
+## Other things to consider
 
 - international trade, esp. tourism
 - structural changes over time?
@@ -280,7 +280,7 @@ We should introduce government transfers to demonstrate that mandated closures a
 
 # Epidemic model
 
-I propose that, for the epidemic model, we remain as consistent as possible with DAEDALUS:
+The epidemic model is similar to DAEDALUS:
 
 - four age groups (pre-school age, school-age children, working age, retirement age)
 - working-age people stratified by something: definitely working/not working, potentially something sector, occupation or SES related

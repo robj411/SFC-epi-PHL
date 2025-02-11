@@ -16,7 +16,7 @@ data_start <- function() {
   
   data$adInd <- 3
   data$nSectors <- 1#nrow(data$x_elim)
-  data$tvec <- c(0, 365)
+  data$tvec <- c(0, 365*2)
   # data$EdInd <- 41 #education sector index
   # data$HospInd <- c(32,43,44) #hospitality sector indices
   
@@ -209,8 +209,7 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   
   # la = life expectancy
   cols <- grep('^la', cdnames)
-  randindex <- sample(country_ind, 1)
-  life_expectancy <- as.numeric(CD[randindex, cols])
+  life_expectancy <- as.numeric(CD[country_ind, cols])
   data$life_exp <- life_expectancy
   
   data$NNs <- NNs
@@ -282,7 +281,7 @@ get_basic_contacts <- function(data, contacts) {
   sectorcontactfracs[['workingage']] <- sectorcontactfracs[['workingage']] / newtotal;
   
   prop_working = NN[1]/(NN[1]+NN[4])
-  target_work_contacts <- contacts$work_frac * workage_total / prop_working
+  target_work_contacts <- contacts$work_frac/2 * workage_total / prop_working
   worker_contacts_adults = sectorcontactfracs[['workingage']] * target_work_contacts
   total_nonworker_contacts = workage_total - prop_working * target_work_contacts
   total_worker_contacts = total_nonworker_contacts + target_work_contacts
@@ -327,11 +326,15 @@ get_basic_contacts <- function(data, contacts) {
   contacts$school1 <- CM_4_orig[1,1] * contacts$school1_frac
   contacts$school2 <- CM_4_orig[2,2] * contacts$school2_frac
   
-  ## subtract contacts from C4
+  ## school
+  school_mat = matrix(0,nrow=4,ncol=4)
+  school_mat[1,1] = contacts$school1
+  school_mat[2,2] = contacts$school2
+  contacts$school_mat = school_mat
   
+  ## subtract contacts from C4
   # school
-  CM_4[1,1] <- CM_4[1,1] - contacts$school1
-  CM_4[2,2] <- CM_4[2,2] - contacts$school2
+  CM_4 <- CM_4 - school_mat
   # customer to worker
   CM_4[3,] <- pmax(CM_4_orig[3,] - av_workerage_contacts_collapsed, 0)
   # worker to customer
@@ -400,8 +403,7 @@ p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_wor
   workRow <- CM_4[adInd, ]
   
   # school
-  CM_4[1, 1] <- CM_4[1, 1] + contacts$school1 # workers_present[edInd]^2 * 
-  CM_4[2, 2] <- CM_4[2, 2] + contacts$school2 # workers_present[edInd]^2 * 
+  CM_4 <- CM_4 + contacts$school_mat # workers_present[edInd]^2 * 
   
   ## Make community matrix
   community_mat <- matrix(0, nrow = nStrata, ncol = nStrata)
@@ -625,7 +627,7 @@ p2SimVax <- function(data, dis, p2, econ) {
   
   # initial conditions
   
-  imported <- 5 / sum(S0) * S0
+  imported <- 5000 / sum(S0) * S0
   t0 <- data$tvec[1]
   epi_init_mat <- matrix(0, nrow = nStrata, ncol = nStates)
   epi_init_mat[, compindex$S_index[1]] <- S0 - imported
@@ -642,8 +644,9 @@ p2SimVax <- function(data, dis, p2, econ) {
                          parms=list(data=rundata, nStrata=nStrata, dis=dis, i=1, p2=p2, econ=econ),
                          method='impAdams_d')
   econ$counter_time <- tmpout[,1]
-  econ$counter_cons <- tmpout[,which(econ$econvarnames=='cons')+1]
-  econ$counter_worker <- apply(tmpout[,-1],1,function(y)econ$work_value(y,econ))
+  linking_values = t(apply(tmpout[,-1],1,function(y)unlist(econ$epi_econ_link(y,econ))))
+  econ$counter_cons <- linking_values[,1]
+  econ$counter_worker <- linking_values[,2]
   econ$integrate <- 1
   
   
@@ -703,17 +706,17 @@ mitigate <- function(t, y, parms) {
 }
 
 
-prop_to_consume = function(epi_var,econ,
+fear_of_infection = function(epi_var,econ,
                            gradient = 10000 # small value => sharp corners
                            , ref_val = 200000 # value whereabouts change in behaviour occurs
                            , baseline = .5 # minimum value
 ){
-  
+  # baseline=.5
   scalar = 1/(1+exp(-(ref_val-epi_var)/gradient))
-  prop_t_consume = baseline + (1-baseline) * scalar
+  prop_to = baseline + (1-baseline) * scalar
   
   for(val in econ$p_to_scale)
-    econ[[val]] = prop_t_consume * econ[[val]];
+    econ[[val]] = prop_to * econ[[val]];
   
   return(econ)
   
@@ -748,7 +751,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   Is <- epi_vars_mat[,I_index[2]]
   H <- epi_vars_mat[,H_index[1]]
   R <- epi_vars_mat[,R_index[1]]
-  # DE <- epi_vars_mat[(D_index[1],]
+  D <- epi_vars_mat[,D_index[1]]
   
   
   
@@ -757,7 +760,10 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   
   integrate = econ$integrate
   if (integrate==1){
-    econ = prop_to_consume(sum(H),econ,ref_val=data$ref_val,baseline=data$baseline)
+    econ = fear_of_infection(sum(H),econ,ref_val=data$ref_val,baseline=data$baseline)
+    # lf is used in model 3 but not 2 or PC
+    # lf is the original lf minus those dead and in hospital
+    econ$lf = econ$lf - D[1] - H[1]
   }
   
   
@@ -765,7 +771,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   ## BLOCK 2: ECON MODEL ####################
   
   econ_vars = y[1:econ$nEconODEs]
-  econ_derivs = econ$odes(y,econ)
+  econ_derivs = econ$odes(t,y,econ)
 
   
     
@@ -776,7 +782,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   relative_work = 1
   if (integrate==1){
     
-    cons = y[which(econ$econvarnames=='cons')]
+    # cons = y[which(econ$econvarnames=='cons')]
     
     counter_time = econ$counter_time
     if(t<min(counter_time)) t = min(counter_time)
@@ -784,10 +790,10 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
     counter_cons = interp1(x=counter_time,y=econ$counter_cons,xi = t)
     counter_worker = interp1(x=counter_time,y=econ$counter_worker,xi = t)
     
-    relative_consumption = cons/counter_cons
-    work_val = econ$work_value(y,econ)
-    relative_work = work_val/counter_worker #
-    
+    linked_vals = econ$epi_econ_link(y,econ)
+    relative_consumption = linked_vals$cons_link/counter_cons
+    relative_work = linked_vals$work_link/counter_worker #
+    # print(c(t,linked_vals$cons_link,counter_cons,relative_consumption,relative_work))
   }
   
   

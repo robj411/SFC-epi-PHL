@@ -79,9 +79,9 @@ econ = model3
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
-eplot = fear_of_infection(epivars,pc_model,ref_val=250000)
+eplot = fear_of_infection(epivars,pc_model,ref_val=100000)
 plotresponse <- ggplot() + 
-  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/pc_model$alpha1),size=2,colour='midnightblue') +
+  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/pc_model$alpha1),linewidth=2,colour='midnightblue') +
   theme_bw(base_size = 15) +
   labs(x='Thousand hospital cases',y='Relative propensity to consume') +
   scale_y_continuous(limits=c(0,1))

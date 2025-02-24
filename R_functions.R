@@ -409,13 +409,16 @@ p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_wor
   community_mat <- matrix(0, nrow = nStrata, ncol = nStrata)
   community_mat[(nSectors + 1):nStrata, (nSectors + 1):nStrata] <- CM_4
   community_mat[1:nSectors, (nSectors + 1):nStrata] <- matrix(rep(workRow, nSectors), nrow = nSectors, byrow = TRUE)
-  community_mat[, workage_indices] <- t(repmat(community_mat[, nSectors + adInd],nSectors+1,1)) * repmat(NNrel,nStrata,1)
-  
+  ad_row = community_mat[, nSectors + adInd]
+  for(i in 1:length(workage_indices))
+    community_mat[,workage_indices[i]] = ad_row * NNrel[i]
+  # community_mat[, workage_indices] <- t(repmat(community_mat[, nSectors + adInd],nSectors+1,1)) * repmat(NNrel,nStrata,1)
+  # browser()
   ## WORKER-WORKER AND COMMUNITY-WORKER MATRICES
   
   effective_openness <- pmax(0, relative_work - home_working)
   effective_openness <- c(effective_openness,rep(0,4))
-  effective_openness_mat <- t(repmat(effective_openness^2, nStrata, 1))
+  # effective_openness_mat <- t(repmat(effective_openness^2, nStrata, 1))
   
   # customer--worker
   communityworker_mat <- contacts$community_worker_mat * effective_openness * relative_consumption

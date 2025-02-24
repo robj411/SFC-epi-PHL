@@ -73,15 +73,17 @@ p2 <- ldata_dis_p2$p2
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose a model
-econ = pc_model
-econ = model2
-econ = model3
+# econ = pc_model
+econ = sim_model
+# econ = model2
+# econ = model3
+# econ = modelpc3
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
-eplot = fear_of_infection(epivars,pc_model,ref_val=100000)
+eplot = fear_of_infection(epivars,sim_model,ref_val=100000)
 plotresponse <- ggplot() + 
-  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/pc_model$alpha1),linewidth=2,colour='midnightblue') +
+  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/sim_model$alpha1),linewidth=2,colour='midnightblue') +
   theme_bw(base_size = 15) +
   labs(x='Thousand hospital cases',y='Relative propensity to consume') +
   scale_y_continuous(limits=c(0,1))
@@ -94,8 +96,7 @@ baselines = c(.2,.5,.8)
 outtab = data.frame(expand.grid(ref_vals,baselines,0,0))
 colnames(outtab) = c('Transition point','Baseline','GDP loss','Deaths averted')
 rv=18
-for(rv in 1:nrow(outtab))
-  {
+for(rv in 1:nrow(outtab)){
   
   ldata$ref_val = outtab[rv,1]
   ldata$baseline = outtab[rv,2]
@@ -146,15 +147,18 @@ for(rv in 1:nrow(outtab))
   Sout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, S_index[1]]
   Rout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, R_index[1]]
   
+  H = rowSums(Hout)
+  Hc = rowSums(Hout0)
+  
   as_pc <- function(scen,counter){
     100*c(scen/counter[1],counter/counter)
   }
   
   plotdata = data.frame(Day=c(Tout,Tout0),
                         Hospitalised=c(rowSums(Hout),rowSums(Hout0)),
-                        Consumption=as_pc(odevar[,which(econ$econvarnames=='cons')+1],cntr[,which(econ$econvarnames=='cons')+1]),
+                        Consumption=as_pc(econ$get_cons_from_out(odevar,econ,H,ldata,1),econ$get_cons_from_out(cntr,econ,Hc,ldata,0)),
                         Wealth=as_pc(odevar[,which(econ$econvarnames==econ$wealth)+1],cntr[,which(econ$econvarnames==econ$wealth)+1]),
-                        GDP=as_pc(odevar[,which(econ$econvarnames=='cons')+1]+econ$g,cntr[,which(econ$econvarnames=='cons')+1]+econ$g),
+                        GDP=as_pc(econ$get_gdp_from_out(odevar,econ,H,ldata,1),econ$get_gdp_from_out(cntr,econ,Hc,ldata,0)),
                         Integrated=c(rep('Integrated model',length(Tout)),rep('Counterfactual',length(Tout0))))
   colnames(plotdata)[3:5] <- c('Consumption, % of counterfactual','Wealth, % of counterfactual','GDP, % of counterfactual')
   plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
@@ -168,20 +172,25 @@ for(rv in 1:nrow(outtab))
   ggsave(plotout,filename=paste0('figures/',econ$model_name,'_',ldata$ref_val,'-',ldata$baseline,'.png'),width=7,height=6)
   
   
-  gdpscen = trapz(Tout,odevar[,which(econ$econvarnames=='cons')+1] + econ$g)
+  gdpscen = trapz(Tout,econ$get_gdp_from_out(odevar,econ,H,ldata,1))
   # trapz(Tout0,cntr[,which(econ$econvarnames=='cons')+1] + econ$g)
   deathsscen = max(Dout)
   deathscnt = max(Dout0)
   
-  outtab[rv,3:4] = c((gdp*2-gdpscen)/gdp/2*100,deathscnt-deathsscen)
+  outtab[rv,3:4] = c((econ$gdp*2-gdpscen)/econ$gdp/2*100,deathscnt-deathsscen)
 }
+
+
 
 ## plot results ###############################
 
-mn = which(c('PC','model2','model3')==econ$model_name)
-xs = matrix(c(14,21.5,21.8, 10,21,21, 9,20,21),nrow=3)
-ys = matrix(c(1.5,6.5,8.3, .5,3.7,4.6, .9,5.9,9.),nrow=3)
-angles = matrix(c(15,44,44, 10,45,45, 8,38,39),nrow=3)
+mn = which(c('SIM','model2','model3','PC','modelpc2','modelpc3')==econ$model_name)
+xs = matrix(c(13.9,19.4,20.1, 15,19.5,20., 15,21,21.2,
+              13.9,21.4,21.8, 9,21,21, 9,20,21),nrow=3)
+ys = matrix(c(1.35,6,8.3, .95,3.4,4.8, 1.8,5.4,7,
+              1.6,6.5,8.3, .45,3.7,4.6, 1,5.9,9.),nrow=3)
+angles = matrix(c(18,57,59, 20,55,58, 22,50,52,
+                  18,52,55, 11,51,53, 13,48,50),nrow=3)
 
 (plotout <- ggplot(outtab) + 
     geom_line(aes(x=`Deaths averted`/1e3,y=`GDP loss`,colour=`Transition point`/1e3,group=Baseline),linewidth=2.5) +
@@ -241,7 +250,7 @@ qs <- c(.05,.5,.95)
 df = data.frame(baseline = rbeta(nSamples,5,5),transition = rgamma(nSamples,2,.00001),
                 work_frac = rbeta(nSamples,10,20), prop_to_consume = rbeta(nSamples,10,10))
 
-p1 = ggplot(data=df,aes(x=baseline)) +
+plot1 = ggplot(data=df,aes(x=baseline)) +
   stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
   stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
   theme_bw(base_size=15) +
@@ -249,7 +258,7 @@ p1 = ggplot(data=df,aes(x=baseline)) +
   scale_x_continuous(breaks=quantile(df$baseline,qs),labels=round(quantile(df$baseline,qs),2)) +
   labs(   x = "Baseline behaviour",y = NULL)
 
-p2 = ggplot(data=df,aes(x=transition)) +
+plot2 = ggplot(data=df,aes(x=transition)) +
   stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
   stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
   theme_bw(base_size=15) +
@@ -257,7 +266,7 @@ p2 = ggplot(data=df,aes(x=transition)) +
   scale_x_continuous(breaks=quantile(df$transition,qs),labels=round(quantile(df$transition,qs)/1000)) +
   labs(   x = "Transition point, thousand hospital cases",y = NULL)
 
-p3 = ggplot(data=df,aes(x=work_frac)) +
+plot3 = ggplot(data=df,aes(x=work_frac)) +
   stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
   stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
   theme_bw(base_size=15) +
@@ -265,7 +274,7 @@ p3 = ggplot(data=df,aes(x=work_frac)) +
   scale_x_continuous(breaks=quantile(df$work_frac,qs),labels=round(quantile(df$work_frac,qs),2)) +
   labs(   x = "Fraction contacts from work",y = NULL) 
 
-p4 = ggplot(data=df,aes(x=prop_to_consume)) +
+plot4 = ggplot(data=df,aes(x=prop_to_consume)) +
   stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
   stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
   theme_bw(base_size=15) +
@@ -273,5 +282,5 @@ p4 = ggplot(data=df,aes(x=prop_to_consume)) +
   scale_x_continuous(breaks=quantile(df$prop_to_consume,qs),labels=round(quantile(df$prop_to_consume,qs),2)) +
   labs(   x = "Propensity to consume",y = NULL) 
 
-params <- grid.arrange(p1,p2,p3,p4,nrow=2)
+params <- grid.arrange(plot1,plot2,plot3,plot4,nrow=2)
 ggsave(params,file='figures/parameters.png')

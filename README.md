@@ -119,7 +119,7 @@ activities by the same amount.
 
 <div class="figure">
 
-<img src="figures/pc_plot.png" alt="Results for PC model with consumption reduction alongside counterfactual epi and econ curves without integration." width="80%" />
+<img src="figures/SIM_1e+05-0.5.png" alt="Results for PC model with consumption reduction alongside counterfactual epi and econ curves without integration." width="80%" />
 
 <p class="caption">
 

@@ -138,17 +138,17 @@ knitr::include_graphics(path = "figures/response.png")
 
 \begin{tikzpicture}
   [shorten <=2pt,shorten >=4pt,>=stealth]
-\node[latent,draw=black] (wip){Workforce in place};
-\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
-\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
-\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
-\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
+\node[latent,draw=black] (cons){Consumption};
+\node[latent,draw=black,left of=cons, xshift=-3cm] (gva){GVA};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(cons) (gva)} {Econ} {none}; 
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (cons)  --  node[text width=1cm,align=center,below] {}  (gva);
+\node[latent,draw=black,left of=cons, xshift=7cm] (inf){Infections};
 \node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
 \node[latent,draw=black,below of=hosp] (death){Deaths};
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
-\node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
-\draw [-|,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
-\draw [-|,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\node[latent,draw=black,left of=cons, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
+\draw [-|,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=20]  (cons.south);
+\draw [-|,-{Stealth[length=3mm, width=4mm]}] (cons) edge[bend left=30]  (inf.west);
 \draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
 \end{tikzpicture}
 ```
@@ -160,7 +160,7 @@ The first step is to model consumption as a function of the epidemic, e.g. the n
 
 ```{r,fig.cap='Results for PC model with consumption reduction alongside counterfactual epi and econ curves without integration.',echo=F,warning=F,message=F, out.width="80%"}
 
-knitr::include_graphics(path = "figures/pc_plot.png")
+knitr::include_graphics(path = "figures/SIM_1e+05-0.5.png")
 
 ```
 
@@ -172,18 +172,20 @@ knitr::include_graphics(path = "figures/pc_plot.png")
   [shorten <=2pt,shorten >=4pt,>=stealth]
 \node[latent,draw=black] (wip){Workforce in place};
 \node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
-\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\node[latent,draw=black,below of=wip] (cons){Consumption};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(cons) (gva)} {Econ} {none}; 
 \draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (cons)  --  node[text width=1cm,align=center,below] {}  (gva);
 \node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
 \node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
 \node[latent,draw=black,below of=hosp] (death){Deaths};
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
 \node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
 \node[latent,draw=black,below of=ptc] (ptw){Propensity to work};
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (cons.south east);
 \draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend left=50]  (wip.south west);
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend right=50]  (inf.south east);
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (wip) edge[bend left=50]  (inf.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (cons) edge[bend left=30]  (inf.west);
 \draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
 \draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptw.north east);
 \end{tikzpicture}
@@ -205,20 +207,22 @@ This version of the model (with spontaneous consumption and labour change) can b
 \begin{tikzpicture}
   [shorten <=2pt,shorten >=4pt,>=stealth]
 \node[latent,draw=black] (wip){Workforce in place};
+\node[latent,draw=black,below of=wip] (cons){Consumption};
 \node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
-\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(cons) (gva)} {Econ} {none}; 
 \draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (cons)  --  node[text width=1cm,align=center,below] {}  (gva);
 \node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
 \node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
 \node[latent,draw=black,below of=hosp] (death){Deaths};
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
 \node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
 \node[latent,draw=black,below of=ptc] (ptw){Propensity to work};
-\node[latent,draw=black,below of=ptw,xshift=5cm] (mandate){Mandated closures};
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\node[latent,draw=black,below of=ptw,xshift=5cm,fill=blue!40!green!20!white] (mandate){Mandated closures};
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (cons.south east);
 \draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend left=50]  (wip.south west);
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend right=50]  (inf.south east);
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (cons) edge[bend right=50]  (inf.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (wip) edge[bend left=30]  (inf.west);
 \draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptw.east);
 \draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptc.east);
 \draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
@@ -241,20 +245,22 @@ Propose a worked example, such as "how would we model a mandate that the hospita
   [shorten <=2pt,shorten >=4pt,>=stealth]
 \node[latent,draw=black] (wip){Workforce in place};
 \node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
-\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ} {none}; 
+\node[latent,draw=black,below of=wip] (cons){Consumption};
+\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(cons) (gva)} {Econ} {none}; 
 \draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
+\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (cons)  --  node[text width=1cm,align=center,below] {}  (gva);
 \node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
 \node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
 \node[latent,draw=black,below of=hosp] (death){Deaths};
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
 \node[latent,draw=black,left of=wip, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
 \node[latent,draw=black,below of=ptc] (ptw){Propensity to work};
-\node[latent,draw=black,below of=ptw,xshift=-5cm] (trans){Transfers};
-\node[latent,draw=black,below of=ptw,xshift=5cm] (mandate){Mandated closures};
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (gva.south east);
+\node[latent,draw=black,below of=ptw,xshift=-5cm,fill=blue!40!green!20!white] (trans){Transfers};
+\node[latent,draw=black,below of=ptw,xshift=5cm,fill=blue!40!green!20!white] (mandate){Mandated closures};
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend right=20]  (cons.south east);
 \draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend left=50]  (wip.south west);
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptw) edge[bend right=50]  (inf.south east);
-\draw [line,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=30]  (inf.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (cons) edge[bend right=50]  (inf.west);
+\draw [line,-{Stealth[length=3mm, width=4mm]}] (wip) edge[bend left=30]  (inf.west);
 \draw [line,-{Bar[length=0mm, width=4mm]}] (trans) edge[bend left=10]  (ptw.west);
 \draw [line,-{Stealth[length=3mm, width=4mm]}] (trans) edge[bend left=10]  (ptc.west);
 \draw [line,-{Bar[length=0mm, width=4mm]}] (mandate) edge[bend right=10]  (ptw.east);

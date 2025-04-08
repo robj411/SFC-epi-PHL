@@ -1,15 +1,16 @@
 
-## SIM (Godley and Lavoie, ch 3) ####################################
+## Model 1, based on SIM (Godley and Lavoie, ch 3) ####################################
 
 # initial parameter values (to be calibrated)
-sim_model <- list()
-sim_model$model_name = 'SIM'
-sim_model$alpha1 = 0.5 #Propensity to consume out of income 
-sim_model$alpha2 = 0.2933/365 #Propensity to consume out of wealth 
+model1 <- list()
+model1$model_name = 'model1'
+model1$alpha0 = 1/365 # Baseline consumption
+model1$alpha1 = 0.5 #Propensity to consume out of income 
+model1$alpha2 = 0.2933/365 #Propensity to consume out of wealth 
 
 # the names of the variables we solve for in the econ ODE model
-sim_model$econvarnames = c('h_h')
-sim_model$nEconODEs = length(sim_model$econvarnames)
+model1$econvarnames = c('h_h')
+model1$nEconODEs = length(model1$econvarnames)
 
 # initial conditions
 ##!! need tax0 > g0
@@ -24,14 +25,14 @@ gment = c(subset(gdata,date==2019)$NE.CON.GOVT.CN/1e12)
 gdp = c(subset(gdpdata,date==2019)$NY.GDP.MKTP.CN/1e12)
 
 y0 = gdp/365 # 
-g0 = gment/365 # 
 tax0 = tax/365 # 
-cons0 = y0 - g0
-yd0 = cons0
+theta = tax0 / y0
+yd0 = (1-theta)*y0
+cons0 = yd0
+g0 = y0-cons0 # gment/365 # 
 
-theta = tax0 / (tax0 + yd0)
-sim_model$theta = theta #Tax rate on income
-sim_model$g = y0 - cons0
+model1$theta = theta #Tax rate on income
+model1$g = y0 - cons0
 
 # function to learn parameters given known values (e.g. gdp)
 param_to_initial <- function(par){
@@ -39,7 +40,7 @@ param_to_initial <- function(par){
   alpha1 = par[1]
   alpha2 = par[2]
   
-  # C(t) = alpha_1*YD(t) + alpha_2*H_h(t-1);
+  # C(t) = alpha_0 + alpha_1*YD(t) + alpha_2*H_h(t-1);
   # Y(t) = C(t) + G(t);
   # N(t) = Y(t)/W(t);
   # tax(t) = theta*W(t)*N(t);                                       
@@ -48,75 +49,93 @@ param_to_initial <- function(par){
   # S(t) = YD(t) - C(t);
   # H_h(t) = H_h(t-1) + S(t);     
   # 
-  # Y(t) =  (alpha_2*H_h(t)/(1- alpha_2) + G(t)) / (1 - (alpha_1-alpha_2)*(1-theta)/(1- alpha_2)) ;
+  # denom = (alpha_1 + alpha_2) * (1 - theta)
+  # C = alpha_0 / denom + G
+  # Y(t) =  C+G
   # YD(t) = Y(t)*(1-theta);
-  # C(t) = (alpha_1*YD(t) + alpha_2*(H_h(t)- YD(t)))/(1-alpha_2);
   # S(t) = YD(t) - C(t);
   # tax(t) = theta*Y(t);
   
-  onemt = 1 - theta
-  denom = 1 - (alpha1*onemt + alpha2*theta)
   G = g0
-  hh0 = (G*onemt - theta*(alpha1*G*onemt - alpha2*G*onemt)/denom)/(theta*alpha2/denom)
-  cons_est = alpha1*yd0 + alpha2*hh0;
-  Y_est = cons_est + G
+  # this condition needs to hold, but only does for H=0. theta*cons0 -  (1-theta)*G < 0
   
-  print(par)
-  print(c(y0,Y_est))
-  sum((y0 - Y_est)^2)
+  # cons_est = (alpha0 + onemt * alpha2 * G) / denom
+  alpha0 = alpha0fun(cons0,theta,alpha1, alpha2, G)
+  hh0 = (cons0*(1 - alpha1) - alpha0) / alpha2
+  cons_est = (hh0*alpha2 + alpha0) / (1 - alpha1)
+  
+  # print(par)
+  # print(c(y0,Y_est))
+  print(c(cons0,cons_est))
+  sum((cons0 - cons_est)^2 + 5*as.numeric(hh0<0))
 }
 
-par = with(sim_model, c(alpha1,alpha2))
+alpha0fun = function(cons0,theta,alpha1, alpha2, G) {
+  onemt = 1 - theta
+  denom =  1 - alpha1 + alpha2*theta
+  cons0 * denom - onemt * alpha2 * G
+}
+
+par = with(model1, c(alpha0,alpha1,alpha2))
 param_to_initial(par)
-out <- optim(par     = with(sim_model, c(.8,.8)),  # initial guess
+out <- optim(par     = with(model1, c(.95, .2933/365)),  # initial guess
              fn      = param_to_initial,
-             method  = "L-BFGS-B",lower = 1e-6, upper=c(0.9,1/365)
+             method  = "L-BFGS-B",lower = 1e-6, upper=c(0.95,1/365)
             )
-# DEoptim::DEoptim(#control = list(all.methods=T),#par     = with(sim_model, c(.8,.8)),  # initial guess
-#                  fn      = param_to_initial,
-#                  lower = c(1e-6,1e-6), upper=c(0.95,1/365)
-# )
 param_to_initial(out$par)
 par = out$par
 
-sim_model$alpha1 = par[1]
-sim_model$alpha2 = par[2]
+# DEoptim::DEoptim(#control = list(all.methods=T),#par     = with(model1, c(.8,.8)),  # initial guess
+#                  fn      = param_to_initial,
+#                  lower = c(1e-6,1e-6,1e-6), upper=c(1,1,1)
+#   ) -> pard
+# par <- unname(pard$optim$bestmem)
+
+model1$alpha1 = par[1]
+model1$alpha2 = par[2]
+model1$alpha0 = alpha0fun(cons0,theta,par[1], par[2], g0)
 
 # get initial conditions
-sim_model$econ_init = with(sim_model,{
+model1$econ_init = with(model1,{
   # tax = theta*Y;
   # Hsdot = G - tax;
   G = g
   onemt = 1 - theta
-  denom = 1 - (alpha1*onemt + alpha2*theta)
-  hh0 = (G*onemt - theta*(alpha1*G*onemt - alpha2*G*onemt)/denom)/(theta*alpha2/denom)
+  denom =  1 - alpha1 + alpha2*theta
+  G = g0
+  C = (alpha0 + onemt * alpha2 * G) / denom
+  hh0 = (C*(1 - alpha1) - alpha0) / alpha2
+  # hh0 = (G*onemt - theta*(alpha1*G*onemt - alpha2*G*onemt)/denom)/(theta*alpha2/denom)
   hh0
 })
 
-sim_model$gdp = with(sim_model, 365 * (alpha2*econ_init/(1- alpha2) + g) / (1 - (alpha1-alpha2)*(1-theta)/(1- alpha2)) )
+cons = with(model1, (alpha0 + alpha1*g*(1-theta) + alpha2*econ_init) / (1 - alpha1*(1 - theta)) ) 
+
+model1$gdp = with(model1, 365 * (cons+g))
+print(c(gdp, model1$gdp))
 
 # variable names we need to know later
 # which parameters we will scale
-sim_model$p_to_scale <- c('alpha1','alpha2')
+model1$p_to_scale <- c('alpha1','alpha2')
 # which variable records wealth
-sim_model$wealth = 'h_h'
+model1$wealth = 'h_h'
 
 # function to get consumption from y and econ
-sim_model$get_cons = function(y,econ){
+model1$get_cons = function(y,econ){
   H_h = y
   
+  alpha0 = econ$alpha0
   alpha1 = econ$alpha1
   alpha2 = econ$alpha2
   theta = econ$theta
   G = econ$g
-  Y =  (alpha2*H_h/(1- alpha2) + G) / (1 - (alpha1-alpha2)*(1-theta)/(1- alpha2)) 
-  YD = Y*(1-theta)
-  cons = (alpha1*YD + alpha2*(H_h- YD))/(1-alpha2)
+  denom = 1 - alpha1*(1 - theta)
+  cons = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
   cons
 }
 
 # function to get consumption from ode matrix output
-sim_model$get_cons_from_out = function(y,econ,H,data,integrate=1){
+model1$get_cons_from_out = function(y,econ,H,data,integrate=1){
   H_h = y[,2]
   if (integrate==1){
     econ = fear_of_infection(H,econ,ref_val=data$ref_val,baseline=data$baseline)
@@ -126,24 +145,24 @@ sim_model$get_cons_from_out = function(y,econ,H,data,integrate=1){
 }
 
 # function to get gdp from ode matrix output
-sim_model$get_gdp_from_out = function(y,econ,H,data,integrate=1){
+model1$get_gdp_from_out = function(y,econ,H,data,integrate=1){
   G = econ$g
   cons = econ$get_cons_from_out(y,econ,H,data,integrate)
   cons + G
 }
 
 ##!! reuse consumption as we do not model workers in this economic model
-sim_model$epi_econ_link = function(y,econ) {
+model1$epi_econ_link = function(y,econ) {
   H_h = y[1]
   cons_link = econ$get_cons(H_h,econ)
   list(cons_link=cons_link, work_link=cons_link)
 }
 
-sim_model$odes = function(t,y,econ){
+model1$odes = function(t,y,econ){
   H_h = y[1]
   G = econ$g
   
-  C = econ$get_cons(H_h,econ) #(alpha1*G*(1 - theta) + alpha2*(H_h - G*(1 - theta)))/(1 - (alpha1*(1 - theta) + alpha2*theta));
+  C = econ$get_cons(H_h,econ) 
   Y = C + G;
   YD = Y*(1 - theta);
   S = YD - C;
@@ -158,13 +177,13 @@ sim_model$odes = function(t,y,econ){
 
 ## model 2: online consumption ###############################
 
-model2 = sim_model
+model2 = model1
 model2$model_name = 'model2'
 model2$q4 = 0.5;
-model2$alpha1online = model2$q4 * sim_model$alpha1
-model2$alpha2online = model2$q4 * sim_model$alpha2
-model2$alpha1offline = (1 - model2$q4) * sim_model$alpha1
-model2$alpha2offline = (1 - model2$q4) * sim_model$alpha2
+model2$alpha1online = model2$q4 * model1$alpha1
+model2$alpha2online = model2$q4 * model1$alpha2
+model2$alpha1offline = (1 - model2$q4) * model1$alpha1
+model2$alpha2offline = (1 - model2$q4) * model1$alpha2
 
 model2$p_to_scale <- c('alpha1offline','alpha2offline')
 
@@ -377,7 +396,7 @@ bop = ex - imp
 
 # initial parameter values (to be calibrated)
 ryear = 0.03
-pc_model <- sim_model
+pc_model <- model1
 pc_model$model_name = 'PC'
 pc_model$alpha1 = 0.5 #Propensity to consume out of income 
 pc_model$alpha2 = 0.2933/365 #Propensity to consume out of wealth 

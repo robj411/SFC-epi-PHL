@@ -74,7 +74,7 @@ p2 <- ldata_dis_p2$p2
 source('econ_models.R')
 # choose a model
 # econ = pc_model
-econ = sim_model
+econ = model1
 # econ = model2
 # econ = model3
 # econ = modelpc3

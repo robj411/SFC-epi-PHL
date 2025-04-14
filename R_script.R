@@ -96,7 +96,8 @@ baselines = c(.2,.5,.8)
 outtab = data.frame(expand.grid(ref_vals,baselines,0,0))
 colnames(outtab) = c('Transition point','Baseline','GDP loss','Deaths averted')
 rv=18
-for(rv in 1:nrow(outtab)){
+for(rv in 1:nrow(outtab))
+{
   
   ldata$ref_val = outtab[rv,1]
   ldata$baseline = outtab[rv,2]
@@ -184,7 +185,7 @@ for(rv in 1:nrow(outtab)){
 
 ## plot results ###############################
 
-mn = which(c('SIM','model2','model3','PC','modelpc2','modelpc3')==econ$model_name)
+mn = which(c('model1','model2','model3','PC','modelpc2','modelpc3')==econ$model_name)
 xs = matrix(c(13.9,19.4,20.1, 15,19.5,20., 15,21,21.2,
               13.9,21.4,21.8, 9,21,21, 9,20,21),nrow=3)
 ys = matrix(c(1.35,6,8.3, .95,3.4,4.8, 1.8,5.4,7,

@@ -4,9 +4,9 @@
 # initial parameter values (to be calibrated)
 model1 <- list()
 model1$model_name = 'model1'
-model1$alpha0 = 1/365 # Baseline consumption
-model1$alpha1 = 0.5 #Propensity to consume out of income 
-model1$alpha2 = 0.2933/365 #Propensity to consume out of wealth 
+# model1$alpha0 = 1/365 # Baseline consumption
+# model1$alpha1 = 0.5 #Propensity to consume out of income 
+# model1$alpha2 = 0.2933/365 #Propensity to consume out of wealth 
 
 # the names of the variables we solve for in the econ ODE model
 model1$econvarnames = c('h_h')
@@ -20,96 +20,29 @@ gdpdata <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = 2018, end_da
 gdata <- wb_data("NE.CON.GOVT.CN",country = country, start_date = 2018, end_date = 2024)
 tdata <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = 2018, end_date = 2024)
 
-tax = c(subset(tdata,date==2019)$GC.TAX.TOTL.CN/1e12)
-gment = c(subset(gdata,date==2019)$NE.CON.GOVT.CN/1e12)
-gdp = c(subset(gdpdata,date==2019)$NY.GDP.MKTP.CN/1e12)
+ref_year = 2023
+
+tax = c(subset(tdata,date==ref_year)$GC.TAX.TOTL.CN/1e12)
+gment = c(subset(gdata,date==ref_year)$NE.CON.GOVT.CN/1e12)
+gdp = c(subset(gdpdata,date==ref_year)$NY.GDP.MKTP.CN/1e12)
 
 y0 = gdp/365 # 
 tax0 = tax/365 # 
 theta = tax0 / y0
 yd0 = (1-theta)*y0
 cons0 = yd0
-g0 = y0-cons0 # gment/365 # 
+g0 = y0 - cons0 # gment/365 # 
 
 model1$theta = theta #Tax rate on income
-model1$g = y0 - cons0
-
-# function to learn parameters given known values (e.g. gdp)
-param_to_initial <- function(par){
-  
-  alpha1 = par[1]
-  alpha2 = par[2]
-  
-  # C(t) = alpha_0 + alpha_1*YD(t) + alpha_2*H_h(t-1);
-  # Y(t) = C(t) + G(t);
-  # N(t) = Y(t)/W(t);
-  # tax(t) = theta*W(t)*N(t);                                       
-  # YD(t) = W(t)*N(t) - tax(t);                                     
-  # H_s(t) = H_s(t-1) + G(t) - tax(t);                                     
-  # S(t) = YD(t) - C(t);
-  # H_h(t) = H_h(t-1) + S(t);     
-  # 
-  # denom = (alpha_1 + alpha_2) * (1 - theta)
-  # C = alpha_0 / denom + G
-  # Y(t) =  C+G
-  # YD(t) = Y(t)*(1-theta);
-  # S(t) = YD(t) - C(t);
-  # tax(t) = theta*Y(t);
-  
-  G = g0
-  # this condition needs to hold, but only does for H=0. theta*cons0 -  (1-theta)*G < 0
-  
-  # cons_est = (alpha0 + onemt * alpha2 * G) / denom
-  alpha0 = alpha0fun(cons0,theta,alpha1, alpha2, G)
-  hh0 = (cons0*(1 - alpha1) - alpha0) / alpha2
-  cons_est = (hh0*alpha2 + alpha0) / (1 - alpha1)
-  
-  # print(par)
-  # print(c(y0,Y_est))
-  print(c(cons0,cons_est))
-  sum((cons0 - cons_est)^2 + 5*as.numeric(hh0<0))
-}
-
-alpha0fun = function(cons0,theta,alpha1, alpha2, G) {
-  onemt = 1 - theta
-  denom =  1 - alpha1 + alpha2*theta
-  cons0 * denom - onemt * alpha2 * G
-}
-
-par = with(model1, c(alpha0,alpha1,alpha2))
-param_to_initial(par)
-out <- optim(par     = with(model1, c(.95, .2933/365)),  # initial guess
-             fn      = param_to_initial,
-             method  = "L-BFGS-B",lower = 1e-6, upper=c(0.95,1/365)
-            )
-param_to_initial(out$par)
-par = out$par
-
-# DEoptim::DEoptim(#control = list(all.methods=T),#par     = with(model1, c(.8,.8)),  # initial guess
-#                  fn      = param_to_initial,
-#                  lower = c(1e-6,1e-6,1e-6), upper=c(1,1,1)
-#   ) -> pard
-# par <- unname(pard$optim$bestmem)
-
-model1$alpha1 = par[1]
-model1$alpha2 = par[2]
-model1$alpha0 = alpha0fun(cons0,theta,par[1], par[2], g0)
+model1$g = g0
+model1$alpha1 = 0.9 # par[1]
+model1$alpha2 = .2933/365 # par[2]
+model1$alpha0 = cons0*(1-model1$alpha1)/3 # alpha0fun(cons0,theta,par[1], par[2], g0)
 
 # get initial conditions
 model1$econ_init = with(model1,{
-  # tax = theta*Y;
-  # Hsdot = G - tax;
-  G = g
-  onemt = 1 - theta
-  denom =  1 - alpha1 + alpha2*theta
-  G = g0
-  C = (alpha0 + onemt * alpha2 * G) / denom
-  hh0 = (C*(1 - alpha1) - alpha0) / alpha2
-  # hh0 = (G*onemt - theta*(alpha1*G*onemt - alpha2*G*onemt)/denom)/(theta*alpha2/denom)
-  hh0
+  ( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2
 })
-
-cons = with(model1, (alpha0 + alpha1*g*(1-theta) + alpha2*econ_init) / (1 - alpha1*(1 - theta)) ) 
 
 model1$gdp = with(model1, 365 * (cons+g))
 print(c(gdp, model1$gdp))
@@ -159,21 +92,26 @@ model1$epi_econ_link = function(y,econ) {
 }
 
 model1$odes = function(t,y,econ){
-  H_h = y[1]
-  G = econ$g
+  H_h = y[1] # household wealth
+  G = econ$g # government spending
+  theta = econ$theta # rate of tax
   
-  C = econ$get_cons(H_h,econ) 
-  Y = C + G;
-  YD = Y*(1 - theta);
-  S = YD - C;
-  dot_h_h = S;
+  C = econ$get_cons(H_h,econ) # consumption
+  Y = C + G; # gdp
+  YD = Y*(1 - theta); # disposable income
+  S = YD - C; # saving
+  dot_h_h = S; # rate of wealth accumulation
   
-  econ_derivs = dot_h_h #money held by households
+  econ_derivs = dot_h_h # change in money held by households
   
-  return(econ_derivs)
+  list(econ_derivs)
   
 }
 
+test_model = model1
+test_model$alpha1 = .0
+x <- deSolve::ode(times = 1:1000, y = test_model$econ_init, func = test_model$odes, parms=test_model, method='impAdams_d')
+plot(x[,2])
 
 ## model 2: online consumption ###############################
 
@@ -261,21 +199,20 @@ model2$epi_econ_link = function(y,econ) {
   list(cons_link=cons_link, work_link=cons_link)
 }
 
-model2$get_cons_from_out = function(y,econ,H,data,integrate=1){
-  H_h = y[,2]
-  if (integrate==1){
-    econ = fear_of_infection(H,econ,ref_val=data$ref_val,baseline=data$baseline)
-  }
-  cons = econ$get_cons(H_h,econ)
-  # cons = (alpha1*G*(1 - theta) + alpha2*(H_h - G*(1 - theta)))/(1 - (alpha1*(1 - theta) + alpha2*theta))
-  cons
-}
+# model2$get_cons_from_out = function(y,econ,H,data,integrate=1){
+#   H_h = y[,2]
+#   if (integrate==1){
+#     econ = fear_of_infection(H,econ,ref_val=data$ref_val,baseline=data$baseline)
+#   }
+#   cons = econ$get_cons(H_h,econ)
+#   cons
+# }
 
-model2$get_gdp_from_out = function(y,econ,H,data,integrate=1){
-  G = econ$g
-  cons = econ$get_cons_from_out(y,econ,H,data,integrate)
-  cons + G
-}
+# model2$get_gdp_from_out = function(y,econ,H,data,integrate=1){
+#   G = econ$g
+#   cons = econ$get_cons_from_out(y,econ,H,data,integrate)
+#   cons + G
+# }
 
 
 

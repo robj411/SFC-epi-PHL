@@ -8,14 +8,16 @@ library(ggplot2)
 library(wbstats)
 library(viridis)
 
+# set up basics
 country <- 'Philippines'
 set.seed(0)
 setwd(getSrcDirectory(function(){})[1])
+
+# load functions
 source('R_functions.R');
- 
 
+# read or create epi and country structures
 datafile <- 'data_file.Rds'
-
 if(!file.exists(datafile)){
   
   ## country variables ###############################
@@ -62,7 +64,7 @@ if(!file.exists(datafile)){
   saveRDS(ldata_dis_p2,datafile)
   
 }else{
-  ldata_dis_p2 <- readRDS('data_file.Rds')
+  ldata_dis_p2 <- readRDS(datafile)
 }
 
 ## load stored objects
@@ -72,22 +74,18 @@ p2 <- ldata_dis_p2$p2
 
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
-# choose a model
-# econ = pc_model
-econ = model1
-# econ = model2
-# econ = model3
-# econ = modelpc3
+# choose an econ model
+econ = model3
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
-eplot = fear_of_infection(epivars,sim_model,ref_val=100000)
+eplot = fear_of_infection(epivars,model1,ref_val=100000)
 plotresponse <- ggplot() + 
-  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/sim_model$alpha1),linewidth=2,colour='midnightblue') +
+  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/model1$alpha1),linewidth=2,colour='midnightblue') +
   theme_bw(base_size = 15) +
   labs(x='Thousand hospital cases',y='Relative propensity to consume') +
   scale_y_continuous(limits=c(0,1))
-ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
+# ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
 
 ## simulate ###########################################################
 
@@ -95,7 +93,6 @@ ref_vals = seq(50000,250000,by=25000)
 baselines = c(.2,.5,.8)
 outtab = data.frame(expand.grid(ref_vals,baselines,0,0))
 colnames(outtab) = c('Transition point','Baseline','GDP loss','Deaths averted')
-rv=18
 for(rv in 1:nrow(outtab))
 {
   
@@ -206,82 +203,3 @@ angles = matrix(c(18,57,59, 20,55,58, 22,50,52,
 ggsave(plotout,filename=paste0('figures/losses_',econ$model_name,'.png'),width=7,height=6)
 
 
-## plot contacts ###########################
-
-matrices = c('basic_contact_matrix','worker_worker_mat','community_worker_mat','CM_4','school_mat','hospitality_contacts')
-matnames = c('Total','Workers','Community—worker','Base','School','Hospitality')
-df = do.call(rbind,lapply(1:length(matrices),function(x)reshape2::melt(ldata$contacts[[matrices[x]]])))
-colnames(df) = c('to','from','contacts')
-df$matrix = rep(matnames,times=sapply(matrices,function(x)prod(dim(ldata$contacts[[x]]))))
-fourbyfour <- c('School','Base','Hospitality')
-df$to[df$matrix%in%fourbyfour] = df$to[df$matrix%in%fourbyfour] + 1 
-df$from[df$matrix%in%fourbyfour] = df$from[df$matrix%in%fourbyfour] + 1 
-
-groups = c('Workforce in place','Aged 0 to 4','Aged 5 to 14','Aged 15 to 69','Over 69')
-cntcts = ggplot(df, aes(x=from, y=to, fill = contacts)) +
-  geom_tile() +
-  facet_wrap(~factor(matrix,levels=matnames), strip.position="bottom") + 
-  scale_fill_viridis() +  
-  theme_bw(base_size=18) +
-  labs(title = "") +
-  scale_x_continuous(name='',breaks=1:5,labels=groups,expand=c(0,0),position = "top")+
-  scale_y_continuous(name='',breaks=1:5,labels=groups,expand=c(0,0),trans = "reverse")+
-  theme(
-    panel.margin=unit(.5, "lines"),
-    panel.border = element_rect(color = "white", fill = NA), 
-    strip.background = element_rect(fill="white",colour='white'),
-    axis.text.x = element_text(angle=45,hjust=0,vjust=1),
-    axis.ticks.x=element_blank(),
-    axis.ticks.y=element_blank(),
-    plot.title = element_text(hjust = 1),        
-    legend.position="right",
-    panel.grid.major = element_line(colour="white"),
-    panel.grid.minor = element_line(colour="white")
-  ) 
-ggsave(cntcts,filename='figures/contacts.png',width=10,height=6.5)
-
-
-
-# library(ggfortify)
-library(ggdist)
-library(gridExtra)
-
-nSamples = 200000
-qs <- c(.05,.5,.95)
-df = data.frame(baseline = rbeta(nSamples,5,5),transition = rgamma(nSamples,2,.00001),
-                work_frac = rbeta(nSamples,10,20), prop_to_consume = rbeta(nSamples,10,10))
-
-plot1 = ggplot(data=df,aes(x=baseline)) +
-  stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
-  stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
-  theme_bw(base_size=15) +
-  coord_cartesian(expand = FALSE) +
-  scale_x_continuous(breaks=quantile(df$baseline,qs),labels=round(quantile(df$baseline,qs),2)) +
-  labs(   x = "Baseline behaviour",y = NULL)
-
-plot2 = ggplot(data=df,aes(x=transition)) +
-  stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
-  stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
-  theme_bw(base_size=15) +
-  coord_cartesian(expand = FALSE) +
-  scale_x_continuous(breaks=quantile(df$transition,qs),labels=round(quantile(df$transition,qs)/1000)) +
-  labs(   x = "Transition point, thousand hospital cases",y = NULL)
-
-plot3 = ggplot(data=df,aes(x=work_frac)) +
-  stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
-  stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
-  theme_bw(base_size=15) +
-  coord_cartesian(expand = FALSE) +
-  scale_x_continuous(breaks=quantile(df$work_frac,qs),labels=round(quantile(df$work_frac,qs),2)) +
-  labs(   x = "Fraction contacts from work",y = NULL) 
-
-plot4 = ggplot(data=df,aes(x=prop_to_consume)) +
-  stat_slab( aes(thickness = after_stat(ifelse(.width <= 0.9, pdf, NA))),fill = "gray85", .width = .9) +
-  stat_slab(colour='midnightblue',linewidth=2,fill=NA) +
-  theme_bw(base_size=15) +
-  coord_cartesian(expand = FALSE) +
-  scale_x_continuous(breaks=quantile(df$prop_to_consume,qs),labels=round(quantile(df$prop_to_consume,qs),2)) +
-  labs(   x = "Propensity to consume",y = NULL) 
-
-params <- grid.arrange(plot1,plot2,plot3,plot4,nrow=2)
-ggsave(params,file='figures/parameters.png')

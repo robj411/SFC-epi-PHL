@@ -1,57 +1,52 @@
 
 ## Model 1, based on SIM (Godley and Lavoie, ch 3) ####################################
 
-# initial parameter values (to be calibrated)
 model1 <- list()
 model1$model_name = 'model1'
-# model1$alpha0 = 1/365 # Baseline consumption
-# model1$alpha1 = 0.5 #Propensity to consume out of income 
-# model1$alpha2 = 0.2933/365 #Propensity to consume out of wealth 
-
-# the names of the variables we solve for in the econ ODE model
-model1$econvarnames = c('h_h')
-model1$nEconODEs = length(model1$econvarnames)
 
 # initial conditions
-##!! need tax0 > g0
-
 # using wb data
 gdpdata <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = 2018, end_date = 2024)
-gdata <- wb_data("NE.CON.GOVT.CN",country = country, start_date = 2018, end_date = 2024)
+# gdata <- wb_data("NE.CON.GOVT.CN",country = country, start_date = 2018, end_date = 2024)
 tdata <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = 2018, end_date = 2024)
 
 ref_year = 2023
-
 tax = c(subset(tdata,date==ref_year)$GC.TAX.TOTL.CN/1e12)
-gment = c(subset(gdata,date==ref_year)$NE.CON.GOVT.CN/1e12)
+# gment = c(subset(gdata,date==ref_year)$NE.CON.GOVT.CN/1e12)
 gdp = c(subset(gdpdata,date==ref_year)$NY.GDP.MKTP.CN/1e12)
 
-y0 = gdp/365 # 
-tax0 = tax/365 # 
-theta = tax0 / y0
-yd0 = (1-theta)*y0
-cons0 = yd0
-g0 = y0 - cons0 # gment/365 # 
+# get initial conditions using equations
+y0 = gdp/365 # from annual to daily
+tax0 = tax/365 # from annual to daily
+theta = tax0 / y0 # from identity
+yd0 = (1-theta)*y0 # from identity
+cons0 = yd0 # from identity
+g0 = y0 - cons0 # gment/365 #  # from identity
 
+# store parameters
+model1$G = g0 # we assume government spending is constant for now
 model1$theta = theta #Tax rate on income
-model1$g = g0
-model1$alpha1 = 0.9 # par[1]
-model1$alpha2 = .2933/365 # par[2]
-model1$alpha0 = cons0*(1-model1$alpha1)/3 # alpha0fun(cons0,theta,par[1], par[2], g0)
+model1$alpha1 = 0.9 # choices
+model1$alpha2 = .2933/365 # choices; goes from annual to daily
+model1$alpha0 = cons0*(1-model1$alpha1)/3 # by definition
+model1$gdp = y0*365 # for final comparisons
 
 # get initial conditions
 model1$econ_init = with(model1,{
   ( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2
 })
 
-model1$gdp = with(model1, 365 * (cons+g))
-print(c(gdp, model1$gdp))
 
 # variable names we need to know later
 # which parameters we will scale
 model1$p_to_scale <- c('alpha1','alpha2')
 # which variable records wealth
-model1$wealth = 'h_h'
+model1$wealth = 'H_h'
+# the names of the variables we solve for in the econ ODE model
+model1$econvarnames = c('H_h')
+# the number of odes
+model1$nEconODEs = length(model1$econvarnames)
+
 
 # function to get consumption from y and econ
 model1$get_cons = function(y,econ){
@@ -61,7 +56,7 @@ model1$get_cons = function(y,econ){
   alpha1 = econ$alpha1
   alpha2 = econ$alpha2
   theta = econ$theta
-  G = econ$g
+  G = econ$G
   denom = 1 - alpha1*(1 - theta)
   cons = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
   cons
@@ -79,7 +74,7 @@ model1$get_cons_from_out = function(y,econ,H,data,integrate=1){
 
 # function to get gdp from ode matrix output
 model1$get_gdp_from_out = function(y,econ,H,data,integrate=1){
-  G = econ$g
+  G = econ$G
   cons = econ$get_cons_from_out(y,econ,H,data,integrate)
   cons + G
 }
@@ -93,24 +88,25 @@ model1$epi_econ_link = function(y,econ) {
 
 model1$odes = function(t,y,econ){
   H_h = y[1] # household wealth
-  G = econ$g # government spending
+  G = econ$G # government spending
   theta = econ$theta # rate of tax
   
   C = econ$get_cons(H_h,econ) # consumption
   Y = C + G; # gdp
   YD = Y*(1 - theta); # disposable income
   S = YD - C; # saving
-  dot_h_h = S; # rate of wealth accumulation
+  dot_H_h = S; # rate of wealth accumulation
   
-  econ_derivs = dot_h_h # change in money held by households
+  econ_derivs = dot_H_h # change in money held by households
   
   list(econ_derivs)
   
 }
 
+# demonstrate behaviour of econ model:
 test_model = model1
-test_model$alpha1 = .0
-x <- deSolve::ode(times = 1:1000, y = test_model$econ_init, func = test_model$odes, parms=test_model, method='impAdams_d')
+test_model$alpha1 = model1$alpha1*(1+1/365)
+x <- deSolve::ode(times = 1:10000, y = test_model$econ_init, func = test_model$odes, parms=test_model, method='impAdams_d')
 plot(x[,2])
 
 ## model 2: online consumption ###############################
@@ -129,52 +125,9 @@ model2$p_to_scale <- c('alpha1offline','alpha2offline')
 # but the economic impact is diminished because of online consumption. Say, half the transactions that would
 # have been lost move online.
 
-model2$odes = function(t,y,econ){
-  
-  H_h = y[1]
-  
-  
-  q4 = econ$q4
-  
-  alpha1online = econ$alpha1online
-  alpha2online = econ$alpha2online
-  alpha1offline = econ$alpha1offline
-  alpha2offline = econ$alpha2offline
-  alpha1 = alpha1online + alpha1offline
-  alpha2 = alpha2online + alpha2offline
-  
-  theta = econ$theta
-  G = econ$g
-  # dot_g = 0
-  
-  
-  C = (alpha1*G*(1 - theta) + alpha2*(H_h - G*(1 - theta)))/(1 - (alpha1*(1 - theta) + alpha2*theta));
-  Y = C + G;
-  YD = Y*(1 - theta);
-  S = YD - C;
-  # tax = theta*Y;
-  # Hsdot = G - tax;
-  dot_h_h = S;
-  
-  econ_derivs = dot_h_h #money held by households
-  
-  
-  # G = econ$g
-  # Y =  (alpha2*H_h/(1- alpha2) + G) / (1 - (alpha1-alpha2)*(1-theta)/(1- alpha2)) 
-  # YD = Y*(1-theta)
-  # cons = (alpha1*YD + alpha2*(H_h- YD))/(1-alpha2)
-  # 
-  # C = alpha1*YD + alpha2*H_h;
-  # Y = C + G;
-  # tax = theta*Y;                                       
-  # YD = Y - tax;                                     
-  
-  return(econ_derivs)
-  
-}
-
 model2$get_cons = function(y,econ) {
   H_h = y
+  alpha0 = econ$alpha0
   alpha1online = econ$alpha1online
   alpha2online = econ$alpha2online
   alpha1offline = econ$alpha1offline
@@ -182,37 +135,29 @@ model2$get_cons = function(y,econ) {
   alpha1 = alpha1online + alpha1offline
   alpha2 = alpha2online + alpha2offline
   theta = econ$theta
-  G = econ$g
-  C = (alpha1*G*(1 - theta) + alpha2*(H_h - G*(1 - theta)))/(1 - (alpha1*(1 - theta) + alpha2*theta))
-  C
+  G = econ$G
+  denom = 1 - alpha1*(1 - theta)
+  cons = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
+  cons
 }
+
 
 model2$epi_econ_link = function(y,econ) {
   H_h = y[1]
+  alpha0 = econ$alpha0
   alpha1offline = econ$alpha1offline
   alpha2offline = econ$alpha2offline
   alpha1 = econ$alpha1online + alpha1offline
   alpha2 = econ$alpha2online + alpha2offline
-  C = econ$get_cons(H_h,econ)
-  ##!! reuse consumption as we do not model workers in this economic model
-  cons_link = (alpha1offline + alpha2offline) / (alpha1 + alpha2) * C
+  # in-person component of consumption
+  # C = econ$get_cons(H_h,econ)
+  # cons_link = (alpha0 + alpha1offline + alpha2offline) / (alpha0 + alpha1 + alpha2) * C
+  G = econ$G
+  denom = 1 - alpha1*(1 - theta)
+  cons_link = (alpha0 + alpha1offline*G*(1-theta) + alpha2offline*H_h) / denom
+  ##!! reuse consumption for work link as we do not model workers in this economic model
   list(cons_link=cons_link, work_link=cons_link)
 }
-
-# model2$get_cons_from_out = function(y,econ,H,data,integrate=1){
-#   H_h = y[,2]
-#   if (integrate==1){
-#     econ = fear_of_infection(H,econ,ref_val=data$ref_val,baseline=data$baseline)
-#   }
-#   cons = econ$get_cons(H_h,econ)
-#   cons
-# }
-
-# model2$get_gdp_from_out = function(y,econ,H,data,integrate=1){
-#   G = econ$g
-#   cons = econ$get_cons_from_out(y,econ,H,data,integrate)
-#   cons + G
-# }
 
 
 
@@ -229,6 +174,7 @@ model3$p_to_scale <- c('alpha1offline','alpha2offline','prop_to_work')
 
 model3$get_cons = function(y,econ) {
   H_h = y
+  alpha0 = econ$alpha0
   alpha1online = econ$alpha1online
   alpha2online = econ$alpha2online
   alpha1offline = econ$alpha1offline
@@ -236,7 +182,7 @@ model3$get_cons = function(y,econ) {
   alpha1 = alpha1online + alpha1offline
   alpha2 = alpha2online + alpha2offline
   theta = econ$theta
-  G = econ$g
+  G = econ$G
   prop_to_work = econ$prop_to_work
   
   # find out the labour supply
@@ -244,7 +190,8 @@ model3$get_cons = function(y,econ) {
   cons_s = pmax(0, wb_s - G)
   
   # compute cons_d assuming no reduction in labour supply
-  cons_d = (alpha1*G*(1 - theta) + alpha2*(H_h - G*(1 - theta)))/(1 - (alpha1*(1 - theta) + alpha2*theta));
+  denom = 1 - alpha1*(1 - theta)
+  cons_d = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
   
   # choose min
   C = cons_s
@@ -259,64 +206,21 @@ model3$get_cons = function(y,econ) {
 
 model3$epi_econ_link = function(y,econ) {
   H_h = y[1]
+  alpha0 = econ$alpha0
   alpha1offline = econ$alpha1offline
   alpha2offline = econ$alpha2offline
   alpha1 = econ$alpha1online + alpha1offline
   alpha2 = econ$alpha2online + alpha2offline
-  C = econ$get_cons(H_h,econ)
-  cons_link = (alpha1offline + alpha2offline) / (alpha1 + alpha2) * C
+  G = econ$G
+  denom = 1 - alpha1*(1 - theta)
+  ##!! unless in-person consumption is also limited by labour supply...
+  cons_link = (alpha0 + alpha1offline*G*(1-theta) + alpha2offline*H_h) / denom
+  # C = econ$get_cons(H_h,econ)
+  # cons_link = (alpha1offline + alpha2offline) / (alpha1 + alpha2) * C
   work_link = econ$lf * econ$prop_to_work
   list(cons_link=cons_link, work_link=work_link)
   
 }
-
-model3$odes = function(t,y,econ){
-  
-  
-  H_h = y[1]
-  
-  alpha1online = econ$alpha1online
-  alpha2online = econ$alpha2online
-  alpha1offline = econ$alpha1offline
-  alpha2offline = econ$alpha2offline
-  alpha1 = alpha1online + alpha1offline
-  alpha2 = alpha2online + alpha2offline
-  prop_to_work = econ$prop_to_work
-  
-  theta = econ$theta
-  G = econ$g
-  # dot_g = 0
-  
-  # find out the labour supply
-  wb_s = econ$lf * prop_to_work * econ$wage
-  cons_s = max(0, wb_s - G)
-  
-  # compute cons_d assuming no reduction in labour supply
-  cons_d = (alpha1*G*(1 - theta) + alpha2*(H_h - G*(1 - theta)))/(1 - (alpha1*(1 - theta) + alpha2*theta));
-  
-  # choose min
-  C = cons_s
-  # if(is.na(cons)) browser()
-  # print(format(c(cons,cons_d,cons_s),digits=20))
-  if(cons_d <= cons_s + 1e-10){
-    C = cons_d
-  }
-  
-  Y = C + G;
-  YD = Y*(1 - theta);
-  S = YD - C;
-  # tax = theta*Y;
-  # Hsdot = G - tax;
-  dot_h_h = S;
-  
-  econ_derivs = dot_h_h
-  
-  return(econ_derivs)
-  
-}
-
-
-
 
 ## model 4 imports and exports ##############################################
 
@@ -421,7 +325,7 @@ pc_model$econ_init = with(pc_model,{
 })
 
 pc_model$gdp = y0 * 365
-pc_model$g = y0 - pc_model$econ_init[4] # y0 - yd0
+pc_model$G = y0 - pc_model$econ_init[4] # y0 - yd0
 
 pc_model$p_to_scale <- c('alpha1','alpha2')
 pc_model$wealth = 'v'
@@ -448,16 +352,16 @@ pc_model$odes = function(t,y,econ){
   lambda1 = econ$lambda1
   lambda2 = econ$lambda2
   r = econ$r
-  g = econ$g
+  G = econ$G
   # dot_g = 0
   
   # tax = yd*theta/(1-theta)
-  dot_yd = (alpha2*v + g + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
-  # gdp = cons + g
+  dot_yd = (alpha2*v + G + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
+  # gdp = cons + G
   dot_v = (yd + dot_yd)*(1 - alpha1) - alpha2*v
   dot_cons = alpha1*(yd + dot_yd) + alpha2*v - cons
   dot_b_h = (v + dot_v)*(lambda0 + lambda1*r) - lambda2*(yd + dot_yd) - b_h/365 ##!!
-  # dot_b_s = g + dot_g - (yd + dot_yd)*theta/(1-theta) + r*b_h
+  # dot_b_s = G + dot_g - (yd + dot_yd)*theta/(1-theta) + r*b_h
   # dot_b_cb = dot_b_s - dot_b_h
   
   econ_derivs = c(dot_b_h, #Government bills held by households
@@ -519,18 +423,18 @@ modelpc2$odes = function(t,y,econ){
   lambda1 = econ$lambda1
   lambda2 = econ$lambda2
   r = econ$r
-  g = econ$g
+  G = econ$G
   # dot_g = 0
   
   # tax = yd*theta/(1-theta)
-  dot_yd = (alpha2*v + g + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
-  # gdp = cons + g
+  dot_yd = (alpha2*v + G + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
+  # gdp = cons + G
   dot_v = (yd + dot_yd)*(1 - alpha1) - alpha2*v
   dot_cons_on = alpha1online*(yd + dot_yd) + alpha2online*v - cons_on
   dot_cons_off = alpha1offline*(yd + dot_yd) + alpha2offline*v - cons_off
   dot_cons = dot_cons_on + dot_cons_off # alpha1*(yd + dot_yd) + alpha2*v - cons # 
   dot_b_h = (v + dot_v)*(lambda0 + lambda1*r) - lambda2*(yd + dot_yd) - b_h/365 ##!!
-  # dot_b_s = g + dot_g - (yd + dot_yd)*theta/(1-theta) + r*b_h
+  # dot_b_s = G + dot_g - (yd + dot_yd)*theta/(1-theta) + r*b_h
   # dot_b_cb = dot_b_s - dot_b_h
   
   econ_derivs = c(dot_b_h, #Government bills held by households
@@ -557,7 +461,7 @@ modelpc2$epi_econ_link = function(y,econ) {
 modelpc3 = modelpc2
 modelpc3$model_name = 'modelpc3'
 modelpc3$prop_to_work = 1
-modelpc3$y0 = modelpc3$g + pc_model$econ_init[2]
+modelpc3$y0 = modelpc3$G + pc_model$econ_init[2]
 modelpc3$lf = ldata$NNs[1]
 modelpc3$wage = y0/modelpc3$lf 
 
@@ -600,17 +504,17 @@ modelpc3$odes = function(t,y,econ){
   lambda1 = econ$lambda1
   lambda2 = econ$lambda2
   r = econ$r
-  g = econ$g
+  G = econ$G
   # dot_g = 0
   
   # find out the labour supply
   wb_s = econ$lf * prop_to_work * econ$wage
-  cons_s = max(0, wb_s - g)
+  cons_s = max(0, wb_s - G)
   dot_cons_s = cons_s - cons
   
   # compute cons_d assuming no reduction in labour supply
   
-  dot_yd = (alpha2*v + g + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
+  dot_yd = (alpha2*v + G + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
   dot_cons_on = alpha1online*(yd + dot_yd) + alpha2online*v - cons_on
   dot_cons_off = alpha1offline*(yd + dot_yd) + alpha2offline*v - cons_off
   dot_cons_d = dot_cons_on + dot_cons_off # alpha1*(yd + dot_yd) + alpha2*v - cons # 
@@ -624,7 +528,7 @@ modelpc3$odes = function(t,y,econ){
     dot_cons = dot_cons_d
     dot_v = (yd + dot_yd)*(1 - alpha1) - alpha2*v
     dot_b_h = (v + dot_v)*(lambda0 + lambda1*r) - lambda2*(yd + dot_yd) - b_h/365 ##!!
-    # dot_b_s = g + dot_g - (yd + dot_yd)*theta/(1-theta) + r*b_h
+    # dot_b_s = G + dot_g - (yd + dot_yd)*theta/(1-theta) + r*b_h
     # dot_b_cb = dot_b_s - dot_b_h
     # if(t<12) print(c(1,t))
   }else{
@@ -647,7 +551,7 @@ modelpc3$odes = function(t,y,econ){
     # alpha1offline = scale_alpha*alpha1offline
     # alpha2offline = scale_alpha*alpha2offline
     # # compute econ again
-    # dot_yd = (alpha2*v + g + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
+    # dot_yd = (alpha2*v + G + r*b_h)/(1 + theta/(1-theta) - alpha1) - yd
     # dot_v = (yd + dot_yd)*(1 - alpha1) - alpha2*v
     
     dot_b_h = (v + dot_v)*(lambda0 + lambda1*r) - lambda2*(yd + dot_yd) - b_h/365 ##!!

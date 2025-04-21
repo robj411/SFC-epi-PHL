@@ -32,9 +32,15 @@ header-includes:
 always_allow_html: true
 ---
 
-This document describes some combined epi-econ models, starting with DAEDALUS, and then moving onto SFC-epi models. 
+To run the code, type
 
-Code examples are taken and adapted from https://github.com/marcoverpas/Italy-SFC-Model and https://github.com/marcoverpas/Six_lectures_on_sfc_models.
+```{r,eval=F}
+source('R_script.R')
+```
+
+which will load also the files `data_file.Rds`, which contains stored objects for parametrising the model; `R_functions.R`, which contains all the functions for solving the epi model; and `econ_models.R`, which contains a few econ models which correspond to the overleaf document.
+
+Other files contain code examples which are taken and adapted mostly from https://github.com/marcoverpas/Italy-SFC-Model and https://github.com/marcoverpas/Six_lectures_on_sfc_models.
 
 ```{r setup, include=FALSE}
 library(ggplot2)  
@@ -61,7 +67,7 @@ library(latex2exp)
 panderOptions('round',2)
 panderOptions('table.split.table', Inf)
 
-knitr::opts_chunk$set(comment=NA, prompt=FALSE, cache=FALSE, echo=F, results='asis')
+# knitr::opts_chunk$set(comment=NA, prompt=FALSE, cache=FALSE, echo=F, results='asis')
 
 format_to_print <- function(x,z=-1){
   formatC(round(x,z), format="f", digits=as.numeric(z>0), big.mark=",")
@@ -80,51 +86,27 @@ format_to_print2 <- function(x,z=2){
     sapply(v, function(i)  formatC(i, format="f", digits=decimalplaces(i), big.mark=","))
 }
 
+country = 'Philippines'
+ldata_dis_p2 <- readRDS("data_file.Rds")
+ldata <- ldata_dis_p2$data
+
+source('R_functions.R')
+source('econ_models.R')
+
+
+
 ```
 
 
 
-# DAEDALUS
+# epi-SFC models
 
-Originally designed of for the UK [@Haw2020] and since applied to Indonesia [@Johnson2023]. The econ model is static. The industrial sectors of the economy are used to stratify the population in the epi model, in which there are contacts related to sector of work and consumption. 
+The SFC model is dynamic in time, meaning impacts can accumulate, and it is demand driven, meaning we can model autonomous behaviour changes that will have impacts on both the economy and the epidemic. 
 
-In response to an outbreak, closures are mandated, resulting in operations in each sector reducing to some percentage. In the model, GVA reduces to the same percentage, and so does attendance of places of work and consumption, which scales contacts made and subsequently disease transmission.
-
-The population is static: it does not grow, and no one changes sector of work. The non-working group remains non-working. The workforce in place includes a fraction who work from home and therefore contribute to GVA but not infections from workplace interactions.
-
-See https://github.com/robj411/p2_drivers for a recent presentation.
+At present we compute the "propensity to consume/work" which scales the contacts in the epi model and feeds into the econ model. 
 
 
-```{tikz dae, fig.cap = "Daedalus model. Mandated closures reduce both infections and workforce in place.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
-
-\begin{tikzpicture}
-  [shorten <=2pt,shorten >=4pt,>=stealth]
-\node[latent,draw=black] (wip){Workforce in place};
-\node[latent,draw=black,left of=wip, xshift=-3cm] (gva){GVA};
-\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(wip) (gva)} {Econ (N sectors)} {none}; 
-\draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (wip)  --  node[text width=1cm,align=center,below] {}  (gva);
-\node[latent,draw=black,left of=wip, xshift=7cm] (inf){Infections};
-\node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
-\node[latent,draw=black,below of=hosp] (death){Deaths};
-\plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(inf) (hosp) (death)} {Epi} {none}; 
-\node[latent,draw=black,left of=wip, xshift=4cm, yshift=3cm] (ld){Mandated closures};
-\draw [-|,-{Bar[length=0mm, width=4mm]}] (ld) edge[bend left=30]  (wip.north east);
-\draw [-|,-{Bar[length=0mm, width=4mm]}] (ld) edge[bend right=40]  (inf.west);
-\end{tikzpicture}
-```
-
-
-# SFC-epi
-
-We will use an SFC model in place of GVA by sector. The SFC model is dynamic in time, meaning impacts can accumulate, and is demand driven, meaning we can model autonomous behaviour changes that will have impacts on both the economy and the epidemic. 
-
-At present we compute the "propensity to consume/work" which scales the contacts in the epi model and feeds into the econ model. It might be better to precompute the counterfactual (without epidemic) consumption and labour, and:
-
-1. compute scaled parameters using epi variable(s) and response function;
-2. solve econ model to get consumption and labour;
-3. scale contacts with the same ratio as consumption and labour have to the no-epidemic counterfactual at the same time point
-
-NB: the model assumes an impact on the general population (i.e. both susceptibles and infectious change their behaviour). Lack of consumption and work from people who are already sick _because_ they are sick is not modelled. This could be included explicitly by e.g. setting the proportion of non-diseased people as the upper bound to propensities.
+We assume an impact of "fear of infection" on the general population (i.e. both susceptibles and infectious change their behaviour). Lack of consumption and work from people who are already sick _because_ they are sick is not modelled. This could be included explicitly by e.g. setting the proportion of non-diseased people as the upper bound to propensities.
 
 ```{r,fig.cap='Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases.',echo=F,warning=F,message=F, out.width="50%"}
 
@@ -132,7 +114,7 @@ knitr::include_graphics(path = "figures/response.png")
 
 ```
 
-## Consumption
+## Model 1: Integrating consumption and the epidemic
 
 ```{tikz consumption, fig.cap = "Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA and new infections.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
 
@@ -154,17 +136,117 @@ knitr::include_graphics(path = "figures/response.png")
 ```
 
 
+The first model has the following items. A name:
 
-The first step is to model consumption as a function of the epidemic, e.g. the number of cases, hospitalisations or deaths. The epidemic variable modifies the "propensity to consume" parameters (often labelled $\alpha$). We scale propensity to consume and exposure-related activities by the same amount. 
+```{r,echo=T}
+cat(model1$model_name)
+
+```
+
+Parameters (the $\alpha$ variables which represent propensity to consume; $\theta$, which is the rate of tax; and $G$, government spending, which in this model we keep constant):
+
+```{r,echo=T}
+cat(with(model1,c(alpha0, alpha1, alpha2, theta, G)))
+
+```
+
+The initial conditions for the time-varying quantities:
+
+```{r,echo=T}
+cat(model1$econ_init)
+
+```
+
+The number of econ ODEs (so that the ODE model knows where the epi variables start):
+
+```{r,echo=T}
+cat(model1$nEconODEs)
+
+```
+
+The names of the econ variables, and the name of the wealth variable (which here are just the same things):
+
+```{r,echo=T}
+cat(model1$econvarnames)
+cat(model1$wealth)
+
+```
+
+Which parameters should be scaled by the epi response function:
+
+```{r,echo=T}
+cat(model1$p_to_scale)
+
+```
 
 
-```{r,fig.cap='Results for SIM model with consumption reduction alongside counterfactual epi and econ curves without integration.',echo=F,warning=F,message=F, out.width="80%"}
+Annual GDP, which is used as the counterfactual for estimating loss:
+
+```{r,echo=T}
+cat(model1$gdp)
+
+```
+
+
+Then there are functions to compute consumption (`get_cons`) and GDP (`get_gdp_from_out`), to compute the fractional reduction of consumption (and labour supply - here proxied by consumption -- `epi_econ_link`), and the ODE (`odes`). 
+
+
+### Initial conditions
+
+Using `wb_stats`, we get the following two annual variables, GDP and taxes:
+
+```{r,echo=T}
+ref_year = 2023
+gdp <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = ref_year, end_date = ref_year)$NY.GDP.MKTP.CN/1e12/365
+tax <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = ref_year, end_date = ref_year)$GC.TAX.TOTL.CN/1e12/365
+
+```
+
+which gives GDP as `r signif(gdp*365,2)` trillion PHP, and tax as  `r signif(tax*365,2)` trillion PHP in the year `r ref_year`.
+
+We derive all other quantities from these two, given that
+
+$$\mathcal{T} = \theta\mathcal{Y}$$
+$$\mathcal{YD} = \mathcal{Y} - \mathcal{T}$$
+$$\mathcal{YD}(0) = \mathcal{C}(0)$$
+$$\mathcal{Y} = \mathcal{C} + \mathcal{G}$$
+  
+```{r,echo=T}
+theta = tax / gdp 
+yd0 = (1-theta)*gdp 
+cons0 = yd0 
+g0 = gdp - cons0 
+
+```
+
+so that the tax rate, theta, is `r signif(theta,2)`; disposable income and consumption are both `r signif(yd0*365,2)` trillion PHP; and government spending is `r signif(g0*365,2)` trillion PHP.
+
+
+Given
+
+$$\mathcal{H}_h = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
+
+ we can compute wealth, $\mathcal{H}_h$, given our choices of the $\alpha$ parameters as
+ 
+```{r,echo=T}
+Hh0 = with(model1,( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2)
+```
+
+giving `r signif(Hh0,2)` trillion PHP.
+
+
+
+### Resulting trajectories
+
+
+
+```{r,fig.cap='Results for model 1 with consumption reduction alongside counterfactual epi and econ curves without integration.',echo=F,warning=F,message=F, out.width="80%"}
 
 knitr::include_graphics(path = "figures/SIM_1e+05-0.5.png")
 
 ```
 
-## Labour supply
+## Model 3: Integrating labour supply and the epidemic
 
 ```{tikz labour, fig.cap = "Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
 
@@ -200,7 +282,21 @@ However, this should ultimately depend also on the need for income, meaning that
 This version of the model (with spontaneous consumption and labour change) can be used to model an unmitigated epidemic: that is, an epidemic where there are no government interventions, but the population can choose infection-avoiding behaviours, which will dampen both the epidemic and the economy. This is an important gap in current epi modelling. We usually assume either no behaviour change, so that unmitigated epidemics have huge death tolls (e.g. UK COVID projection), or that uncosted (free) population behaviour change will curb the excesses of the epidemic (CEPI work).
 
 
-## Mandated closures
+## Model 4: Integrating imports and exports into the SFC model
+
+We use `wb_stats` data to get imports and exports, and use these to update the balance sheets and the transition matrix, and therefore the relationship between GDP and domestic consumption.
+
+```{r }
+idata <- wb_data("NE.IMP.GNFS.CN",country = country, start_date = 2018, end_date = 2024)
+edata <- wb_data("NE.EXP.GNFS.CN",country = country, start_date = 2018, end_date = 2024)
+imp = c(subset(idata,date==2023)$NE.IMP.GNFS.CN/1e12)
+ex = c(subset(edata,date==2023)$NE.EXP.GNFS.CN/1e12)
+c(exports = ex, imports = imp, bop = ex-imp)
+```
+
+
+
+## Model 5: Integrating government and the epidemic
 
 ```{tikz mandate, fig.cap = "Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
 

@@ -3,146 +3,217 @@ Towards combined epidemiological and economic dynamical systems
 
 
 
-- [1 DAEDALUS](#1-daedalus)
-- [2 SFC-epi](#2-sfc-epi)
-  - [2.1 Consumption](#21-consumption)
-  - [2.2 Labour supply](#22-labour-supply)
-  - [2.3 Mandated closures](#23-mandated-closures)
-  - [2.4 Government transfers](#24-government-transfers)
-  - [2.5 Other things to consider](#25-other-things-to-consider)
-- [3 Epidemic model](#3-epidemic-model)
-  - [3.1 Ordinary differential
-    equations](#31-ordinary-differential-equations)
-  - [3.2 Disease state transitions](#32-disease-state-transitions)
-- [4 References](#4-references)
+- [1 epi-SFC models](#1-epi-sfc-models)
+  - [1.1 Model 1: Integrating consumption and the
+    epidemic](#11-model-1-integrating-consumption-and-the-epidemic)
+    - [1.1.1 Initial conditions](#111-initial-conditions)
+    - [1.1.2 Resulting trajectories](#112-resulting-trajectories)
+  - [1.2 Model 3: Integrating labour supply and the
+    epidemic](#12-model-3-integrating-labour-supply-and-the-epidemic)
+  - [1.3 Model 4: Integrating imports and exports into the SFC
+    model](#13-model-4-integrating-imports-and-exports-into-the-sfc-model)
+  - [1.4 Model 5: Integrating government and the
+    epidemic](#14-model-5-integrating-government-and-the-epidemic)
+  - [1.5 Government transfers](#15-government-transfers)
+  - [1.6 Other things to consider](#16-other-things-to-consider)
+- [2 Epidemic model](#2-epidemic-model)
+  - [2.1 Ordinary differential
+    equations](#21-ordinary-differential-equations)
+  - [2.2 Disease state transitions](#22-disease-state-transitions)
+- [3 References](#3-references)
 
-This document describes some combined epi-econ models, starting with
-DAEDALUS, and then moving onto SFC-epi models.
+To run the code, type
 
-Code examples are taken and adapted from
-<https://github.com/marcoverpas/Italy-SFC-Model> and
+``` r
+source('R_script.R')
+```
+
+which will load also the files `data_file.Rds`, which contains stored
+objects for parametrising the model; `R_functions.R`, which contains all
+the functions for solving the epi model; and `econ_models.R`, which
+contains a few econ models which correspond to the overleaf document.
+
+Other files contain code examples which are taken and adapted mostly
+from <https://github.com/marcoverpas/Italy-SFC-Model> and
 <https://github.com/marcoverpas/Six_lectures_on_sfc_models>.
 
-# 1 DAEDALUS
+# 1 epi-SFC models
 
-Originally designed of for the UK (Haw et al. 2022) and since applied to
-Indonesia (Johnson et al. 2023). The econ model is static. The
-industrial sectors of the economy are used to stratify the population in
-the epi model, in which there are contacts related to sector of work and
-consumption.
-
-In response to an outbreak, closures are mandated, resulting in
-operations in each sector reducing to some percentage. In the model, GVA
-reduces to the same percentage, and so does attendance of places of work
-and consumption, which scales contacts made and subsequently disease
-transmission.
-
-The population is static: it does not grow, and no one changes sector of
-work. The non-working group remains non-working. The workforce in place
-includes a fraction who work from home and therefore contribute to GVA
-but not infections from workplace interactions.
-
-See <https://github.com/robj411/p2_drivers> for a recent presentation.
-
-<div class="figure">
-
-<img src="README_files/figure-gfm/dae-1.png" alt="Daedalus model. Mandated closures reduce both infections and workforce in place." width="70%" />
-
-<p class="caption">
-
-<span id="fig:dae"></span>Figure 1.1: Daedalus model. Mandated closures
-reduce both infections and workforce in place.
-
-</p>
-
-</div>
-
-# 2 SFC-epi
-
-We will use an SFC model in place of GVA by sector. The SFC model is
-dynamic in time, meaning impacts can accumulate, and is demand driven,
-meaning we can model autonomous behaviour changes that will have impacts
-on both the economy and the epidemic.
+The SFC model is dynamic in time, meaning impacts can accumulate, and it
+is demand driven, meaning we can model autonomous behaviour changes that
+will have impacts on both the economy and the epidemic.
 
 At present we compute the “propensity to consume/work” which scales the
-contacts in the epi model and feeds into the econ model. It might be
-better to precompute the counterfactual (without epidemic) consumption
-and labour, and:
+contacts in the epi model and feeds into the econ model.
 
-1.  compute scaled parameters using epi variable(s) and response
-    function;
-2.  solve econ model to get consumption and labour;
-3.  scale contacts with the same ratio as consumption and labour have to
-    the no-epidemic counterfactual at the same time point
-
-NB: the model assumes an impact on the general population (i.e. both
-susceptibles and infectious change their behaviour). Lack of consumption
-and work from people who are already sick *because* they are sick is not
-modelled. This could be included explicitly by e.g. setting the
-proportion of non-diseased people as the upper bound to propensities.
+We assume an impact of “fear of infection” on the general population
+(i.e. both susceptibles and infectious change their behaviour). Lack of
+consumption and work from people who are already sick *because* they are
+sick is not modelled. This could be included explicitly by e.g. setting
+the proportion of non-diseased people as the upper bound to
+propensities.
 
 <div class="figure">
 
 <img src="figures/response.png" alt="Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases." width="50%" />
-
 <p class="caption">
-
-<span id="fig:unnamed-chunk-1"></span>Figure 2.1: Dose–response
+<span id="fig:unnamed-chunk-2"></span>Figure 1.1: Dose–response
 function: extent of behaviour change as a function of an epidemiological
 variable such as number of hospital cases.
-
 </p>
 
 </div>
 
-## 2.1 Consumption
+## 1.1 Model 1: Integrating consumption and the epidemic
 
 <div class="figure">
 
 <img src="README_files/figure-gfm/consumption-1.png" alt="Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA and new infections." width="70%" />
-
 <p class="caption">
-
-<span id="fig:consumption"></span>Figure 2.2: Epi variables reduce
+<span id="fig:consumption"></span>Figure 1.2: Epi variables reduce
 propensity to consume, which reduces consumption, and therefore GVA and
 new infections.
-
 </p>
 
 </div>
 
-The first step is to model consumption as a function of the epidemic,
-e.g. the number of cases, hospitalisations or deaths. The epidemic
-variable modifies the “propensity to consume” parameters (often labelled
-$\alpha$). We scale propensity to consume and exposure-related
-activities by the same amount.
+The first model has the following items. A name:
+
+``` r
+cat(model1$model_name)
+```
+
+    ## model1
+
+Parameters (the $\alpha$ variables which represent propensity to
+consume; $\theta$, which is the rate of tax; and $G$, government
+spending, which in this model we keep constant):
+
+``` r
+cat(with(model1,c(alpha0, alpha1, alpha2, theta, G)))
+```
+
+    ## 0.001907701 0.9 0.0008035616 0.1410151 0.009395317
+
+The initial conditions for the time-varying quantities:
+
+``` r
+cat(model1$econ_init)
+```
+
+    ## 4.748112
+
+The number of econ ODEs (so that the ODE model knows where the epi
+variables start):
+
+``` r
+cat(model1$nEconODEs)
+```
+
+    ## 1
+
+The names of the econ variables, and the name of the wealth variable
+(which here are just the same things):
+
+``` r
+cat(model1$econvarnames)
+```
+
+    ## H_h
+
+``` r
+cat(model1$wealth)
+```
+
+    ## H_h
+
+Which parameters should be scaled by the epi response function:
+
+``` r
+cat(model1$p_to_scale)
+```
+
+    ## alpha1 alpha2
+
+Annual GDP, which is used as the counterfactual for estimating loss:
+
+``` r
+cat(model1$gdp)
+```
+
+    ## 24.31861
+
+Then there are functions to compute consumption (`get_cons`) and GDP
+(`get_gdp_from_out`), to compute the fractional reduction of consumption
+(and labour supply - here proxied by consumption – `epi_econ_link`), and
+the ODE (`odes`).
+
+### 1.1.1 Initial conditions
+
+Using `wb_stats`, we get the following two annual variables, GDP and
+taxes:
+
+``` r
+ref_year = 2023
+gdp <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = ref_year, end_date = ref_year)$NY.GDP.MKTP.CN/1e12/365
+tax <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = ref_year, end_date = ref_year)$GC.TAX.TOTL.CN/1e12/365
+```
+
+which gives GDP as 24 trillion PHP, and tax as 3.4 trillion PHP in the
+year 2023.
+
+We derive all other quantities from these two, given that
+
+$$\mathcal{T} = \theta\mathcal{Y}$$
+$$\mathcal{YD} = \mathcal{Y} - \mathcal{T}$$
+$$\mathcal{YD}(0) = \mathcal{C}(0)$$
+$$\mathcal{Y} = \mathcal{C} + \mathcal{G}$$
+
+``` r
+theta = tax / gdp 
+yd0 = (1-theta)*gdp 
+cons0 = yd0 
+g0 = gdp - cons0 
+```
+
+so that the tax rate, theta, is 0.14; disposable income and consumption
+are both 21 trillion PHP; and government spending is 3.4 trillion PHP.
+
+Given
+
+$$\mathcal{H}_h = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
+
+we can compute wealth, $\mathcal{H}_h$, given our choices of the
+$\alpha$ parameters as
+
+``` r
+Hh0 = with(model1,( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2)
+```
+
+giving 4.7 trillion PHP.
+
+### 1.1.2 Resulting trajectories
 
 <div class="figure">
 
-<img src="figures/SIM_1e+05-0.5.png" alt="Results for SIM model with consumption reduction alongside counterfactual epi and econ curves without integration." width="80%" />
-
+<img src="figures/SIM_1e+05-0.5.png" alt="Results for model 1 with consumption reduction alongside counterfactual epi and econ curves without integration." width="80%" />
 <p class="caption">
-
-<span id="fig:unnamed-chunk-2"></span>Figure 2.3: Results for SIM model
+<span id="fig:unnamed-chunk-13"></span>Figure 1.3: Results for model 1
 with consumption reduction alongside counterfactual epi and econ curves
 without integration.
-
 </p>
 
 </div>
 
-## 2.2 Labour supply
+## 1.2 Model 3: Integrating labour supply and the epidemic
 
 <div class="figure">
 
 <img src="README_files/figure-gfm/labour-1.png" alt="Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections." width="70%" />
-
 <p class="caption">
-
-<span id="fig:labour"></span>Figure 2.4: Epi variables reduce propensity
+<span id="fig:labour"></span>Figure 1.4: Epi variables reduce propensity
 to work and to consume, which reduces consumption and labour supply, and
 therefore GVA and new infections.
-
 </p>
 
 </div>
@@ -165,19 +236,33 @@ unmitigated epidemics have huge death tolls (e.g. UK COVID projection),
 or that uncosted (free) population behaviour change will curb the
 excesses of the epidemic (CEPI work).
 
-## 2.3 Mandated closures
+## 1.3 Model 4: Integrating imports and exports into the SFC model
+
+We use `wb_stats` data to get imports and exports, and use these to
+update the balance sheets and the transition matrix, and therefore the
+relationship between GDP and domestic consumption.
+
+``` r
+idata <- wb_data("NE.IMP.GNFS.CN",country = country, start_date = 2018, end_date = 2024)
+edata <- wb_data("NE.EXP.GNFS.CN",country = country, start_date = 2018, end_date = 2024)
+imp = c(subset(idata,date==2023)$NE.IMP.GNFS.CN/1e12)
+ex = c(subset(edata,date==2023)$NE.EXP.GNFS.CN/1e12)
+c(exports = ex, imports = imp, bop = ex-imp)
+```
+
+    ##   exports   imports       bop 
+    ##  6.481808  9.908114 -3.426307
+
+## 1.4 Model 5: Integrating government and the epidemic
 
 <div class="figure">
 
 <img src="README_files/figure-gfm/mandate-1.png" alt="Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work." width="70%" />
-
 <p class="caption">
-
-<span id="fig:mandate"></span>Figure 2.5: Epi variables reduce
+<span id="fig:mandate"></span>Figure 1.5: Epi variables reduce
 propensity to work and to consume, which reduces consumption and labour
 supply, and therefore GVA and new infections. Mandated closures reduce
 consumption and propensity to work.
-
 </p>
 
 </div>
@@ -189,20 +274,17 @@ expressed as a percentage of counterfactual labour demand.
 Propose a worked example, such as “how would we model a mandate that the
 hospitality sector closes?”
 
-## 2.4 Government transfers
+## 1.5 Government transfers
 
 <div class="figure">
 
 <img src="README_files/figure-gfm/transfers-1.png" alt="Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work. Government transfers increase consumption and reduce propensity to work." width="70%" />
-
 <p class="caption">
-
-<span id="fig:transfers"></span>Figure 2.6: Epi variables reduce
+<span id="fig:transfers"></span>Figure 1.6: Epi variables reduce
 propensity to work and to consume, which reduces consumption and labour
 supply, and therefore GVA and new infections. Mandated closures reduce
 consumption and propensity to work. Government transfers increase
 consumption and reduce propensity to work.
-
 </p>
 
 </div>
@@ -211,13 +293,13 @@ We should introduce government transfers to demonstrate that mandated
 closures are only sustainable for as long as the population is supported
 to forego income in order to stop the spread of infection.
 
-## 2.5 Other things to consider
+## 1.6 Other things to consider
 
 - international trade, esp. tourism
 - structural changes over time?
 - move to online consumption
 
-# 3 Epidemic model
+# 2 Epidemic model
 
 The epidemic model is similar to DAEDALUS:
 
@@ -230,7 +312,7 @@ The epidemic model is similar to DAEDALUS:
 - leave school closures out for now, for simplicity
 - outputs from the econ model parametrise the function $k_{j}^{1}$
 
-## 3.1 Ordinary differential equations
+## 2.1 Ordinary differential equations
 
 $$\begin{align}
 \frac{dS_{j}}{dt} & = - k_{j}^{1}(t)S_{j}  \\
@@ -242,46 +324,18 @@ $$\begin{align}
 \frac{dD_{j}}{dt} & =  k_{j}^{8}(t) H_{j}
 \end{align}$$
 
-## 3.2 Disease state transitions
+## 2.2 Disease state transitions
 
 <div class="figure">
 
 <img src="README_files/figure-gfm/statetransitions-1.png" alt="Disease state transitions. $S$: susceptible. $E$: exposed. $I^{a}$: asymptomatic infectious. $I^{s}$: symptomatic infectious. $H$: in need of hospitalisation. $R$: recovered. $D$: died. $j$: stratum." width="50%" />
-
 <p class="caption">
-
-<span id="fig:statetransitions"></span>Figure 3.1: Disease state
+<span id="fig:statetransitions"></span>Figure 2.1: Disease state
 transitions. $S$: susceptible. $E$: exposed. $I^{a}$: asymptomatic
 infectious. $I^{s}$: symptomatic infectious. $H$: in need of
 hospitalisation. $R$: recovered. $D$: died. $j$: stratum.
-
 </p>
 
 </div>
 
-# 4 References
-
-<div id="refs" class="references csl-bib-body hanging-indent"
-entry-spacing="0">
-
-<div id="ref-Haw2020" class="csl-entry">
-
-Haw, David, Giovanni Forchini, Patrick Doohan, Paula Christen, Matteo
-Pianella, Rob Johnson, Sumali Bajaj, et al. 2022. “Optimizing Social and
-Economic Activity While Containing SARS-CoV-2 Transmission Using
-DAEDALUS.” *Nature Computational Science* 2: 223–33.
-<https://doi.org/10.1038/s43588-022-00233-0>.
-
-</div>
-
-<div id="ref-Johnson2023" class="csl-entry">
-
-Johnson, Rob, Bimandra Djaafara, David Haw, Patrick Doohan, Giovanni
-Forchini, Matteo Pianella, Neil Ferguson, Peter C Smith, and Katharina D
-Hauck. 2023. “The Societal Value of SARS-CoV-2 Booster Vaccination in
-Indonesia.” *Vaccine*, no. 41.
-<https://doi.org/10.1016/j.vaccine.2023.01.068>.
-
-</div>
-
-</div>
+# 3 References

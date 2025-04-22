@@ -95,7 +95,7 @@ outtab = data.frame(expand.grid(ref_vals,baselines,0,0))
 colnames(outtab) = c('Transition point','Baseline','GDP loss','Deaths averted')
 for(rv in 1:nrow(outtab))
 {
-  
+  cat(paste0('Parameter combination ',rv,' out of ',nrow(outtab),'\n'))
   ldata$ref_val = outtab[rv,1]
   ldata$baseline = outtab[rv,2]
   ## run model

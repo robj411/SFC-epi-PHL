@@ -290,8 +290,8 @@ param_to_initial <- function(par){
   # b_s = v_est
   # bcb_est = b_s - bh_est
   # g_est = y0 - yd_est
-  print(par)
-  print(c(v_est,bh_est,bh0,cons_est ,cons0, yd_est,yd0))
+  # print(par)
+  # print(c(v_est,bh_est,bh0,cons_est ,cons0, yd_est,yd0))
   sum((c(bh0/365 ,cons0,yd0) - c(bh_est/365,cons_est, yd_est))^2) + abs(min(0,v_est-bh_est)/36.5)
 }
 

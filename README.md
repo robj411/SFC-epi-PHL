@@ -23,7 +23,7 @@ epi-SFC models
   - [2.2 Disease state transitions](#22-disease-state-transitions)
 - [3 Epi to econ response function](#3-epi-to-econ-response-function)
 
-To run the code, type
+**To run the code**, type
 
 ``` r
 source('R_script.R')
@@ -33,6 +33,11 @@ which will load also the files `data_file.Rds`, which contains stored
 objects for parametrising the model; `R_functions.R`, which contains all
 the functions for solving the epi model; and `econ_models.R`, which
 contains a few econ models which correspond to the overleaf document.
+
+Note that the epi functions in `R_functions.R` were copied over from
+Daedalus, so they have a lot of functionality that we are not using,
+including “events” used for mitigation and things to do with
+vaccination. I leave them in here in case any of it is needed in future.
 
 Other files contain code examples which are taken and adapted mostly
 from <https://github.com/marcoverpas/Italy-SFC-Model> and

@@ -646,6 +646,7 @@ p2SimVax <- function(data, dis, p2, econ) {
   tmpout <- deSolve::ode(times = seq(t0,tend,1), y = y0, func = fun,
                          parms=list(data=rundata, nStrata=nStrata, dis=dis, i=1, p2=p2, econ=econ),
                          method='impAdams_d')
+  # store counterfactual values
   econ$counter_time <- tmpout[,1]
   linking_values = t(apply(tmpout[,-1],1,function(y)unlist(econ$epi_econ_link(y,econ))))
   econ$counter_cons <- linking_values[,1]
@@ -662,6 +663,8 @@ p2SimVax <- function(data, dis, p2, econ) {
   i <- 1
   isequence <- NULL
   
+  # a lot of this code is designed for "events", which we are not using right now, so it can be ignored,
+  # e.g. the "response time" p2$Tres.
   while (t0 < tend) {
     
     isequence <- rbind(isequence, c(t0, i))
@@ -705,7 +708,6 @@ p2SimVax <- function(data, dis, p2, econ) {
 
 mitigate <- function(t, y, parms) {
   return(1)
-  
 }
 
 
@@ -714,10 +716,10 @@ fear_of_infection = function(epi_var,econ,
                            , ref_val = 200000 # value whereabouts change in behaviour occurs
                            , baseline = .5 # minimum value
 ){
-  # baseline=.5
   scalar = 1/(1+exp(-(ref_val-epi_var)/gradient))
   prop_to = baseline + (1-baseline) * scalar
   
+  # update all parameters in the econ list that are to be scaled
   for(val in econ$p_to_scale)
     econ[[val]] = prop_to * econ[[val]];
   
@@ -764,7 +766,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   integrate = econ$integrate
   if (integrate==1){
     econ = fear_of_infection(sum(H),econ,ref_val=data$ref_val,baseline=data$baseline)
-    # lf is used in model 3 but not 2 or PC
+    # labour force (lf) is used in model 3 but not 2 or 1
     # lf is the original lf minus those dead and in hospital
     econ$lf = econ$lf - D[1] - H[1]
   }
@@ -785,7 +787,9 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   relative_work = 1
   if (integrate==1){
     
-    # cons = y[which(econ$econvarnames=='cons')]
+    # "counter" = counterfactual; these are econ variables that came from a prior simulation with no
+    # epidemic. In our simple models, they are just constant values. Here, we interpolate the values, 
+    # in case we update (but it might save a lot of computation time to just use a constant)
     
     counter_time = econ$counter_time
     if(t<min(counter_time)) t = min(counter_time)
@@ -800,8 +804,9 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   }
   
   
-  ## FOI
+  ## FOI (force of infection)
   
+  # we recompute the contact matrix at each time step based on the econ variables
   contact_matrix = p2MakeDs(data, NN0, relative_consumption = relative_consumption, 
                             relative_work = relative_work, home_working = 0)
   I <- dis$asym_rel_transmission * Ia + Is

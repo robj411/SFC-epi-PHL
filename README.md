@@ -1,13 +1,14 @@
-Towards combined epidemiological and economic dynamical systems
+epi-SFC models
 ================
 
 
 
-- [1 epi-SFC models](#1-epi-sfc-models)
+- [1 Econ models](#1-econ-models)
   - [1.1 Model 1: Integrating consumption and the
     epidemic](#11-model-1-integrating-consumption-and-the-epidemic)
-    - [1.1.1 Initial conditions](#111-initial-conditions)
-    - [1.1.2 Resulting trajectories](#112-resulting-trajectories)
+    - [1.1.1 Model attributes](#111-model-attributes)
+    - [1.1.2 Initial conditions](#112-initial-conditions)
+    - [1.1.3 Resulting trajectories](#113-resulting-trajectories)
   - [1.2 Model 3: Integrating labour supply and the
     epidemic](#12-model-3-integrating-labour-supply-and-the-epidemic)
   - [1.3 Model 4: Integrating imports and exports into the SFC
@@ -20,7 +21,7 @@ Towards combined epidemiological and economic dynamical systems
   - [2.1 Ordinary differential
     equations](#21-ordinary-differential-equations)
   - [2.2 Disease state transitions](#22-disease-state-transitions)
-- [3 References](#3-references)
+- [3 Epi to econ response function](#3-epi-to-econ-response-function)
 
 To run the code, type
 
@@ -37,32 +38,7 @@ Other files contain code examples which are taken and adapted mostly
 from <https://github.com/marcoverpas/Italy-SFC-Model> and
 <https://github.com/marcoverpas/Six_lectures_on_sfc_models>.
 
-# 1 epi-SFC models
-
-The SFC model is dynamic in time, meaning impacts can accumulate, and it
-is demand driven, meaning we can model autonomous behaviour changes that
-will have impacts on both the economy and the epidemic.
-
-At present we compute the “propensity to consume/work” which scales the
-contacts in the epi model and feeds into the econ model.
-
-We assume an impact of “fear of infection” on the general population
-(i.e. both susceptibles and infectious change their behaviour). Lack of
-consumption and work from people who are already sick *because* they are
-sick is not modelled. This could be included explicitly by e.g. setting
-the proportion of non-diseased people as the upper bound to
-propensities.
-
-<div class="figure">
-
-<img src="figures/response.png" alt="Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases." width="50%" />
-<p class="caption">
-<span id="fig:unnamed-chunk-2"></span>Figure 1.1: Dose–response
-function: extent of behaviour change as a function of an epidemiological
-variable such as number of hospital cases.
-</p>
-
-</div>
+# 1 Econ models
 
 ## 1.1 Model 1: Integrating consumption and the epidemic
 
@@ -70,12 +46,14 @@ variable such as number of hospital cases.
 
 <img src="README_files/figure-gfm/consumption-1.png" alt="Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA and new infections." width="70%" />
 <p class="caption">
-<span id="fig:consumption"></span>Figure 1.2: Epi variables reduce
+<span id="fig:consumption"></span>Figure 1.1: Epi variables reduce
 propensity to consume, which reduces consumption, and therefore GVA and
 new infections.
 </p>
 
 </div>
+
+### 1.1.1 Model attributes
 
 The first model has the following items. A name:
 
@@ -148,7 +126,7 @@ Then there are functions to compute consumption (`get_cons`) and GDP
 (and labour supply - here proxied by consumption – `epi_econ_link`), and
 the ODE (`odes`).
 
-### 1.1.1 Initial conditions
+### 1.1.2 Initial conditions
 
 Using `wb_stats`, we get the following two annual variables, GDP and
 taxes:
@@ -181,7 +159,7 @@ are both 21 trillion PHP; and government spending is 3.4 trillion PHP.
 
 Given
 
-$$\mathcal{H}_h = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
+$$\mathcal{H}_h(0) = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
 
 we can compute wealth, $\mathcal{H}_h$, given our choices of the
 $\alpha$ parameters as
@@ -192,13 +170,13 @@ Hh0 = with(model1,( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/
 
 giving 4.7 trillion PHP.
 
-### 1.1.2 Resulting trajectories
+### 1.1.3 Resulting trajectories
 
 <div class="figure">
 
 <img src="figures/SIM_1e+05-0.5.png" alt="Results for model 1 with consumption reduction alongside counterfactual epi and econ curves without integration." width="80%" />
 <p class="caption">
-<span id="fig:unnamed-chunk-13"></span>Figure 1.3: Results for model 1
+<span id="fig:unnamed-chunk-12"></span>Figure 1.2: Results for model 1
 with consumption reduction alongside counterfactual epi and econ curves
 without integration.
 </p>
@@ -211,7 +189,7 @@ without integration.
 
 <img src="README_files/figure-gfm/labour-1.png" alt="Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections." width="70%" />
 <p class="caption">
-<span id="fig:labour"></span>Figure 1.4: Epi variables reduce propensity
+<span id="fig:labour"></span>Figure 1.3: Epi variables reduce propensity
 to work and to consume, which reduces consumption and labour supply, and
 therefore GVA and new infections.
 </p>
@@ -259,7 +237,7 @@ c(exports = ex, imports = imp, bop = ex-imp)
 
 <img src="README_files/figure-gfm/mandate-1.png" alt="Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work." width="70%" />
 <p class="caption">
-<span id="fig:mandate"></span>Figure 1.5: Epi variables reduce
+<span id="fig:mandate"></span>Figure 1.4: Epi variables reduce
 propensity to work and to consume, which reduces consumption and labour
 supply, and therefore GVA and new infections. Mandated closures reduce
 consumption and propensity to work.
@@ -280,7 +258,7 @@ hospitality sector closes?”
 
 <img src="README_files/figure-gfm/transfers-1.png" alt="Epi variables reduce propensity to work and to consume, which reduces consumption and labour supply, and therefore GVA and new infections. Mandated closures reduce consumption and propensity to work. Government transfers increase consumption and reduce propensity to work." width="70%" />
 <p class="caption">
-<span id="fig:transfers"></span>Figure 1.6: Epi variables reduce
+<span id="fig:transfers"></span>Figure 1.5: Epi variables reduce
 propensity to work and to consume, which reduces consumption and labour
 supply, and therefore GVA and new infections. Mandated closures reduce
 consumption and propensity to work. Government transfers increase
@@ -338,4 +316,24 @@ hospitalisation. $R$: recovered. $D$: died. $j$: stratum.
 
 </div>
 
-# 3 References
+# 3 Epi to econ response function
+
+We assume an impact of “fear of infection” on the general population
+(i.e. both susceptibles and infectious change their behaviour). Lack of
+consumption and work from people who are already sick *because* they are
+sick is not modelled. This could be included explicitly by e.g. setting
+the proportion of non-diseased people as the upper bound to
+propensities.
+
+<div class="figure">
+
+<img src="figures/response.png" alt="Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases." width="50%" />
+<p class="caption">
+<span id="fig:unnamed-chunk-14"></span>Figure 3.1: Dose–response
+function: extent of behaviour change as a function of an epidemiological
+variable such as number of hospital cases.
+</p>
+
+</div>
+
+<!-- # References -->

@@ -1,5 +1,5 @@
 ---
-title: "Towards combined epidemiological and economic dynamical systems"
+title: "epi-SFC models"
 #date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   bookdown::github_document2:
@@ -99,20 +99,9 @@ source('econ_models.R')
 
 
 
-# epi-SFC models
-
-The SFC model is dynamic in time, meaning impacts can accumulate, and it is demand driven, meaning we can model autonomous behaviour changes that will have impacts on both the economy and the epidemic. 
-
-At present we compute the "propensity to consume/work" which scales the contacts in the epi model and feeds into the econ model. 
+# Econ models
 
 
-We assume an impact of "fear of infection" on the general population (i.e. both susceptibles and infectious change their behaviour). Lack of consumption and work from people who are already sick _because_ they are sick is not modelled. This could be included explicitly by e.g. setting the proportion of non-diseased people as the upper bound to propensities.
-
-```{r,fig.cap='Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases.',echo=F,warning=F,message=F, out.width="50%"}
-
-knitr::include_graphics(path = "figures/response.png")
-
-```
 
 ## Model 1: Integrating consumption and the epidemic
 
@@ -135,6 +124,7 @@ knitr::include_graphics(path = "figures/response.png")
 \end{tikzpicture}
 ```
 
+### Model attributes
 
 The first model has the following items. A name:
 
@@ -224,7 +214,7 @@ so that the tax rate, theta, is `r signif(theta,2)`; disposable income and consu
 
 Given
 
-$$\mathcal{H}_h = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
+$$\mathcal{H}_h(0) = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
 
  we can compute wealth, $\mathcal{H}_h$, given our choices of the $\alpha$ parameters as
  
@@ -433,5 +423,16 @@ The epidemic model is similar to DAEDALUS:
 \end{tikzpicture}
 ```
 
-# References
+# Epi to econ response function
+
+We assume an impact of "fear of infection" on the general population (i.e. both susceptibles and infectious change their behaviour). Lack of consumption and work from people who are already sick _because_ they are sick is not modelled. This could be included explicitly by e.g. setting the proportion of non-diseased people as the upper bound to propensities.
+
+```{r,fig.cap='Dose--response function: extent of behaviour change as a function of an epidemiological variable such as number of hospital cases.',echo=F,warning=F,message=F, out.width="50%"}
+
+knitr::include_graphics(path = "figures/response.png")
+
+```
+
+
+<!-- # References -->
 

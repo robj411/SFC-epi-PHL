@@ -75,7 +75,7 @@ p2 <- ldata_dis_p2$p2
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model3
+econ = model1
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
@@ -85,7 +85,7 @@ plotresponse <- ggplot() +
   theme_bw(base_size = 15) +
   labs(x='Thousand hospital cases',y='Relative propensity to consume') +
   scale_y_continuous(limits=c(0,1))
-# ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
+ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
 
 ## simulate ###########################################################
 

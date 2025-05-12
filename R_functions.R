@@ -3,7 +3,7 @@
 #
 # data: struct of general model parameters
 
-data_start <- function() {
+data_start <- function(data_path = '../Daedalus-P2-Dashboard/data') {
   
   data <- list()
   # closurefile <- '../Daedalus-P2-Dashboard/data/closures.xlsx'
@@ -21,8 +21,8 @@ data_start <- function() {
   # data$HospInd <- c(32,43,44) #hospitality sector indices
   
   contacts <- list()
-  contacts$sectorcontacts <- as.numeric(read.csv('../Daedalus-P2-Dashboard/data/sectorcontacts.csv')$n_cnt)
-  contacts$sectorcontactfracs <- read.csv('../Daedalus-P2-Dashboard/data/sec_contact_dist_UK.csv')
+  contacts$sectorcontacts <- as.numeric(read.csv(file.path(data_path,'sectorcontacts.csv'))$n_cnt)
+  contacts$sectorcontactfracs <- read.csv(file.path(data_path,'sec_contact_dist_UK.csv'))
   data$contacts <- contacts
   
   data$ageindex <- list(1, 2:3, 4:14, 15:21)
@@ -42,8 +42,8 @@ data_start <- function() {
 
 
 
-load_country_data <- function() {
-  CD <- read.csv('../Daedalus-P2-Dashboard/data/country_data.csv')
+load_country_data <- function(data_path = '../Daedalus-P2-Dashboard/data') {
+  CD <- read.csv(file.path(data_path,'country_data.csv'))
   CD$popsum <- rowSums(CD[, 4:24])
   
   CMcols <- grep('CM', names(CD))
@@ -62,7 +62,7 @@ load_country_data <- function() {
   }
   CD$average_contacts <- average_contacts
   
-  country_parameter_distributions <- read.csv('../Daedalus-P2-Dashboard/data/parameter_distributions.csv')
+  country_parameter_distributions <- read.csv(file.path(data_path,'parameter_distributions.csv'))
   country_parameter_distributions$Parameter.2[grep('gam',country_parameter_distributions$distribution)] <- 
     1/country_parameter_distributions$Parameter.2[grep('gam',country_parameter_distributions$distribution)]
   
@@ -95,6 +95,7 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
                          country_parameter_distributions$distribution != 'NA'))
   country_ind = which(CD$country==country_name)
   cpd <- country_parameter_distributions[pindices, ]
+  # hosp_id = grepl("hospitality[0-9]_frac",cpd$parameter_name)
   cpd$distribution <- paste0('q',gsub('inv','',cpd$distribution))
   cpd$distribution <- gsub('gam','gamma',cpd$distribution)
   cpd$distribution <- gsub('logn','lnorm',cpd$distribution)
@@ -111,9 +112,9 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   }
   
   # store values
-  data$remote_quantile <- internet_coverage_quantile
-  data$response_time_quantile <- runif(1, 0, 1)
-  data$remote_teaching_effectiveness <- runif(1, 0, 1)
+  # data$remote_quantile <- internet_coverage_quantile
+  # data$response_time_quantile <- runif(1, 0, 1)
+  # data$remote_teaching_effectiveness <- runif(1, 0, 1)
   
   # contacts.pt = pt
   contacts$school1_frac <- school1_frac
@@ -129,11 +130,11 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
     contacts$hospitality_age[, i] <- c(1 - p3 - p4, p3, p4) # rdirichlet(1, c(1 - p3 - p4, p3, p4) * 10)
   }
   
-  data$Hmax <- CD$Hmax[country_ind]
-  labs <- read_dta(file.path('../Daedalus-P2-Dashboard/data/','lab_share_data.dta'))
-  sublab <- subset(labs,countrycode=='MEX')
-  labsh <- subset(sublab,year==max(year))$labsh
-  data$labsh <- labsh
+  # data$Hmax <- CD$Hmax[country_ind]
+  # labs <- read_dta(file.path('../Daedalus-P2-Dashboard/data/','lab_share_data.dta'))
+  # sublab <- subset(labs,countrycode=='MEX')
+  # labsh <- subset(sublab,year==max(year))$labsh
+  # data$labsh <- labsh
   
   # values by sampling
   
@@ -155,7 +156,7 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   
   # population by stratum
   # sample workforce
-  nonempind <- which(!is.na(CD$NNs1) & country_indices)
+  # nonempind <- which(!is.na(CD$NNs1) & country_indices)
   colNNs <- grep('NNs', cdnames)
   allsectors <- as.matrix(CD[country_ind, colNNs])
   contacts$sectorcontacts = sum(allsectors*contacts$sectorcontacts)/sum(allsectors)
@@ -186,31 +187,31 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   # s1 <- sB[1]
   # s2 <- sB[2]
   # contacts$sectorcontacts <- pmax((sectorcontacts + 1) * 2 ^ runif(sB, -1, 1) - 1, 0)
-  uk_ptr <- 15.87574
+  # uk_ptr <- 15.87574
   # contacts$sectorcontacts[data$EdInd] <- pupil_teacher_ratio / uk_ptr * contacts$sectorcontacts[data$EdInd]
-  data$pupil_teacher_ratio <- pupil_teacher_ratio
+  # data$pupil_teacher_ratio <- pupil_teacher_ratio
   
   # matrix
-  randvalue <- as.numeric(CD[country_ind, grep('CM', cdnames)])
-  defivalue <- matrix(randvalue, nrow = 16, ncol = 16)
+  cvalue <- as.numeric(CD[country_ind, grep('CM', cdnames)])
+  defivalue <- matrix(cvalue, nrow = 16, ncol = 16)
   contacts$CM <- defivalue
   
   # wfh = work from home
-  mins <- apply(CD[country_ind, grep('wfhl', cdnames)], 2, min)
-  maxs <- apply(CD[country_ind, grep('wfhu', cdnames)], 2, max)
-  newprop <- sum(qunif(internet_coverage_quantile, mins, maxs)*allsectors)/sum(allsectors)
-  data$wfh <- matrix(newprop, nrow = 2, ncol = length(mins))
+  # mins <- apply(CD[country_ind, grep('wfhl', cdnames)], 2, min)
+  # maxs <- apply(CD[country_ind, grep('wfhu', cdnames)], 2, max)
+  # newprop <- sum(qunif(internet_coverage_quantile, mins, maxs)*allsectors)/sum(allsectors)
+  # data$wfh <- matrix(newprop, nrow = 2, ncol = length(mins))
   
   # date of importation
-  data$t_import <- runif(1, 0, 20)
+  # data$t_import <- runif(1, 0, 20)
   
   # Hres = hospital occupancy at response time in origin country
-  data$Hres <- qunif(data$response_time_quantile, 1, 20)
+  # data$Hres <- qunif(data$response_time_quantile, 1, 20)
   
   # la = life expectancy
-  cols <- grep('^la', cdnames)
-  life_expectancy <- as.numeric(CD[country_ind, cols])
-  data$life_exp <- life_expectancy
+  # cols <- grep('^la', cdnames)
+  # life_expectancy <- as.numeric(CD[country_ind, cols])
+  # data$life_exp <- life_expectancy
   
   data$NNs <- NNs
   
@@ -281,7 +282,7 @@ get_basic_contacts <- function(data, contacts) {
   sectorcontactfracs[['workingage']] <- sectorcontactfracs[['workingage']] / newtotal;
   
   prop_working = NN[1]/(NN[1]+NN[4])
-  target_work_contacts <- contacts$work_frac/2 * workage_total / prop_working
+  target_work_contacts <- contacts$work_frac * workage_total / prop_working
   worker_contacts_adults = sectorcontactfracs[['workingage']] * target_work_contacts
   total_nonworker_contacts = workage_total - prop_working * target_work_contacts
   total_worker_contacts = total_nonworker_contacts + target_work_contacts
@@ -302,7 +303,6 @@ get_basic_contacts <- function(data, contacts) {
   worker_worker_mat[1:nSectors,1:nSectors] <- community_to_worker_mat[1:nSectors,1:nSectors]
   
   contacts$worker_worker_mat <- worker_worker_mat
-  print(worker_worker_mat)
   
   community_to_worker_mat[1:nSectors,1:nSectors] <- 0
   
@@ -312,7 +312,6 @@ get_basic_contacts <- function(data, contacts) {
   worker_to_community_mat <- cbind(t(consumer_contacts),matrix(0,ncol=4,nrow=nStrata))
   
   contacts$community_worker_mat <- worker_to_community_mat + community_to_worker_mat
-  print(contacts$community_worker_mat)
   
   # worker_to_community_mat + community_to_worker_mat
   
@@ -344,10 +343,15 @@ get_basic_contacts <- function(data, contacts) {
   # hospitality
   
   ##!! too many work contacts to infants
-  hospitality_age <- contacts$hospitality_age
-  hospitality_age <- rbind(hospitality_age[1,], hospitality_age)
+  hospitality_age <- contacts$hospitality_age # each column tells you how hospitality contacts are distributed between
+  # under 20, working age, and retired age
+  # split first row into two age groups
+  infants = Npop4[1]/sum(Npop4[1:2])
+  hospitality_age <- rbind(infants*hospitality_age[1,], 
+                           (1-infants)*hospitality_age[1,], 
+                           hospitality_age[2:3,])
   total_contacts <- rowSums(CM_4)
-  contacts$hospitality_contacts <- t(repmat(total_contacts * contacts$hospitality_frac,4,1)) %*% hospitality_age
+  contacts$hospitality_contacts <- t(repmat(total_contacts * contacts$hospitality_frac,4,1)) * hospitality_age
   CM_4 <- pmax(CM_4 - contacts$hospitality_contacts, 0)
   
   ## save
@@ -413,7 +417,7 @@ p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_wor
   for(i in 1:length(workage_indices))
     community_mat[,workage_indices[i]] = ad_row * NNrel[i]
   # community_mat[, workage_indices] <- t(repmat(community_mat[, nSectors + adInd],nSectors+1,1)) * repmat(NNrel,nStrata,1)
-  # browser()
+  
   ## WORKER-WORKER AND COMMUNITY-WORKER MATRICES
   
   effective_openness <- pmax(0, relative_work - home_working)
@@ -498,11 +502,10 @@ p2Params <- function(data, dis) {
 #
 # data: struct of general model parameters
 # dis: struct of pathogen parameters
-# R0betafun: the function that computes beta from R0
 #
 # dis: struct of pathogen parameters
 
-population_disease_parameters <- function(data, dis, R0betafun) {
+population_disease_parameters <- function(data, dis) {
   
   ## COUNTRY PARAMETERS
   ## INITIAL DISEASE PARAMETERS
@@ -544,9 +547,7 @@ population_disease_parameters <- function(data, dis, R0betafun) {
   zs <- rep(0, length(NNs))
   dis$CI <- get_candidate_infectees(nStrata=length(NNs), dis, S=NNs, N=NNs, contact_matrix=data$contacts$basic_contact_matrix)
   
-  R0beta <- R0betafun(dis)
-  dis$R0 <- R0beta[1]
-  dis$beta <- R0beta[2]
+  dis$beta <- dis$R0 / dis$CI
   
   return(dis)
 }
@@ -630,7 +631,7 @@ p2SimVax <- function(data, dis, p2, econ) {
   
   # initial conditions
   
-  imported <- 5000 / sum(S0) * S0
+  imported <- 100 / sum(S0) * S0
   t0 <- data$tvec[1]
   epi_init_mat <- matrix(0, nrow = nStrata, ncol = nStates)
   epi_init_mat[, compindex$S_index[1]] <- S0 - imported
@@ -670,8 +671,8 @@ p2SimVax <- function(data, dis, p2, econ) {
     isequence <- rbind(isequence, c(t0, i))
     
     # solve ODEs
-    obligatory_times <- c(t0,seq(ceiling(t0),floor(tend),by=1),tend)
-    if(p2$Tres > t0) obligatory_times <- sort(c(obligatory_times,p2$Tres))
+    obligatory_times <- unique(c(t0,seq(ceiling(t0),floor(tend),by=1),tend))
+    # if(p2$Tres > t0) obligatory_times <- sort(c(obligatory_times,p2$Tres))
     
     out <- deSolve::ode(times = obligatory_times, y = y0, func = fun,
                         parms=list(data=rundata, nStrata=nStrata, dis=dis, i=i, p2=p2, econ=econ),
@@ -712,10 +713,11 @@ mitigate <- function(t, y, parms) {
 
 
 fear_of_infection = function(epi_var,econ,
-                           gradient = 10000 # small value => sharp corners
-                           , ref_val = 200000 # value whereabouts change in behaviour occurs
-                           , baseline = .5 # minimum value
+                             gradient = 1000 # small value => sharp corners
+                             , ref_val = 200000 # value whereabouts change in behaviour occurs
+                             , baseline = .5 # minimum value
 ){
+  
   scalar = 1/(1+exp(-(ref_val-epi_var)/gradient))
   prop_to = baseline + (1-baseline) * scalar
   
@@ -779,7 +781,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   econ_derivs = econ$odes(t,y,econ)
 
   
-    
+  
   ## BLOCK 3: EPI MODEL ####################
   
   # get relative values
@@ -857,5 +859,53 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
 }
 
 
+plot_trajectories <- function(runlist,ldata){
+  odevar <- runlist$integrated
+  
+  
+  Tout <- odevar[,1]
+  out_without_t <- odevar[,-1]
+  compindex <- ldata$compindex
+  nStates = max(unlist(compindex))
+  
+  
+  S_index <- compindex$S_index
+  E_index <- compindex$E_index
+  I_index <- compindex$I_index
+  H_index <- compindex$H_index
+  D_index <- compindex$D_index
+  
+  nStrata <- ldata$nStrata
+  nTime = nrow(odevar)
+  epi_vars_mat = array(out_without_t[,-c(1:econ$nEconODEs)],dim=c(nTime,nStrata,nStates))
+  Ia <- epi_vars_mat[,, I_index[1]]
+  Is <- epi_vars_mat[,, I_index[2]]
+  Iout <- Ia+Is
+  Hout <-  epi_vars_mat[,, H_index[1]]
+  Dout <- epi_vars_mat[,, D_index[1]]
+  Sout <- epi_vars_mat[, , S_index[1]]
+  
+  
+  cntr <- runlist$counterfactual
+  
+  Tout0 <- cntr[,1]
+  Hout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, H_index[1]]
+  
+  plotdata = data.frame(Day=c(Tout,Tout0),
+                        Hospitalised=c(rowSums(Hout),rowSums(Hout0)),
+                        Consumption=c(odevar[,which(econ$econvarnames=='cons')+1],cntr[,which(econ$econvarnames=='cons')+1])/cntr[,which(econ$econvarnames=='cons')+1]*100,
+                        Wealth=c(odevar[,which(econ$econvarnames==econ$wealth)+1],cntr[,which(econ$econvarnames==econ$wealth)+1])/cntr[,which(econ$econvarnames==econ$wealth)+1]*100,
+                        GDP=c(odevar[,which(econ$econvarnames=='cons')+1]+econ$g,cntr[,which(econ$econvarnames=='cons')+1]+econ$g)/(cntr[,which(econ$econvarnames=='cons')+1]+econ$g)*100,
+                        Integrated=c(rep('Integrated model',length(Tout)),rep('Counterfactual',length(Tout0))))
+  colnames(plotdata)[2:5] <- c('Hospital demand','Consumption, % of counterfactual','Wealth, % of counterfactual','GDP, % of counterfactual')
+  
+  plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
+    geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +
+    facet_wrap(~variable,scales = 'free_y') +
+    theme_bw(base_size=15) +
+    theme(legend.position = 'top') + 
+    labs(y='',colour='')
+  print(plotout)
+}
 
 

@@ -760,7 +760,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   
   
   
-  ## BLOCK 1: THE LINK ####################
+  ## BLOCK 1: THE EPI->ECON LINK ####################
   ## response to pandemic / mandate
   
   integrate = econ$integrate
@@ -780,7 +780,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
 
   
     
-  ## BLOCK 3: EPI MODEL ####################
+  ## BLOCK 3: THE ECON->EPI LINK ####################
   
   # get relative values
   relative_consumption = 1
@@ -802,6 +802,8 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
     relative_work = linked_vals$work_link/counter_worker #
     # print(c(t,linked_vals$cons_link,counter_cons,relative_consumption,relative_work))
   }
+  
+  ## BLOCK 4: EPI MODEL ######################
   
   
   ## FOI (force of infection)

@@ -28,7 +28,7 @@ model1$G = g0 # we assume government spending is constant for now
 model1$theta = theta #Tax rate on income
 model1$alpha1 = 0.9 # choices
 model1$alpha2 = .2933/365 # choices; goes from annual to daily
-model1$alpha0 = cons0*(1-model1$alpha1)/3 # by definition
+model1$alpha0 = cons0*(1-model1$alpha1)/3 # choices
 model1$gdp = y0*365 # for final comparisons
 
 # get initial conditions

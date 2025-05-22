@@ -54,7 +54,7 @@ if(!file.exists(datafile)){
   
   ldata1 <- p2RandCountry(data, CD, 'UMIC', country_parameter_distributions, country_name=country)
   # combine country and disease parameters
-  dis1 <- population_disease_parameters(data=ldata1, dis, R0betafun=R0_to_beta)
+  dis1 <- population_disease_parameters(data=ldata1, dis)
   
   
   ## complete p2, dis and data structs #################################
@@ -79,17 +79,20 @@ econ = model1
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
-eplot = fear_of_infection(epivars,model1,ref_val=100000)
-plotresponse <- ggplot() + 
+eplot = epi_to_econ(epivars,model1,ref_val=100000)
+(plotresponse <- ggplot() + 
   geom_line(aes(x=epivars/1e3,y=eplot$alpha1/model1$alpha1),linewidth=2,colour='midnightblue') +
   theme_bw(base_size = 15) +
   labs(x='Thousand hospital cases',y='Relative propensity to consume') +
-  scale_y_continuous(limits=c(0,1))
+  scale_y_continuous(limits=c(0,1)) +
+    geom_abline(slope=-1/85,intercept=1.925,colour='grey',linewidth=1.5,linetype=2) +
+    geom_vline(xintercept=100,colour='grey',linewidth=1.5) +
+    geom_hline(yintercept=.5,colour='grey',linewidth=1.5))
 # ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
 
 ## simulate ###########################################################
 
-ref_vals = seq(50000,250000,by=25000)
+ref_vals = seq(25000,250000,by=25000)
 baselines = c(.2,.5,.8)
 outtab = data.frame(expand.grid(ref_vals,baselines,0,0))
 colnames(outtab) = c('Transition point','Baseline','GDP loss','Deaths averted')
@@ -195,10 +198,10 @@ angles = matrix(c(18,57,59, 20,55,58, 22,50,52,
     theme_bw(base_size = 15) +
     labs(x='Deaths averted, thousands',y='GDP loss, % of GDP',colour='Transition point') +
     scale_colour_viridis(discrete=F, name="Transition point (thousand hospital cases)",option='inferno',direction = -1) +
-    theme(legend.position = 'top') +
-    annotate('text',label='Baseline = 0.8',x=xs[1,mn],y=ys[1,mn],angle=angles[1,mn])+
-    annotate('text',label='Baseline = 0.5',x=xs[2,mn],y=ys[2,mn],angle=angles[2,mn])+
-    annotate('text',label='Baseline = 0.2',x=xs[3,mn],y=ys[3,mn],angle=angles[3,mn]))
+    theme(legend.position = 'top') )#+
+    # annotate('text',label='Baseline = 0.8',x=xs[1,mn],y=ys[1,mn],angle=angles[1,mn])+
+    # annotate('text',label='Baseline = 0.5',x=xs[2,mn],y=ys[2,mn],angle=angles[2,mn])+
+    # annotate('text',label='Baseline = 0.2',x=xs[3,mn],y=ys[3,mn],angle=angles[3,mn]))
   
 ggsave(plotout,filename=paste0('figures/losses_',econ$model_name,'.png'),width=7,height=6)
 

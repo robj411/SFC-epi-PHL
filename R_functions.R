@@ -254,11 +254,9 @@ get_basic_contacts <- function(data, contacts) {
   ## community contacts ##################################
   
   CM_164 <- sapply(ageindex, function(x) rowSums(CM_16[,x,drop=F]))
-  CM_4 <- t(sapply(ageindex, function(x) (Npop[x] %*% CM_164[x,]) / sum(Npop[x]))  )
-  CM_4_orig = CM_4
+  CM_4_orig <- t(sapply(ageindex, function(x) (Npop[x] %*% CM_164[x,]) / sum(Npop[x]))  )
   CMav <- pop_props %*% colSums(CM_4_orig)
   contact_props <- CM_4_orig[3,] / sum(CM_4_orig[3,])
-  workage_total <- sum(CM_4_orig[3,])
   
   ## indices
   
@@ -271,7 +269,13 @@ get_basic_contacts <- function(data, contacts) {
   
   ## work-related contacts ##########################################
   
-  sectoragedist <- matrix(0, nSectors, nStrata)
+  workage_total <- sum(CM_4_orig[3,]) # total contacts made to people of working age
+  workage_workage_total = CM_4_orig[3,3] # workage contacts made to people of working age
+  prop_working = NNrel[1] # proportion of working age working
+  prop_nw = 1 - prop_working
+  x <- sum(NNrel*NN[c(1,4)])/NN[1]
+  
+  # distribution of workers' contacts
   sectorcontactfracs <- contacts$sectorcontactfracs;
   # correct for age dist
   over65frac <- Npop4[4]/sum(Npop4);
@@ -280,46 +284,66 @@ get_basic_contacts <- function(data, contacts) {
   newtotal <- sectorcontactfracs[['workingage']]+sectorcontactfracs[['X65plus']]+sectorcontactfracs[['under18']];
   sectorcontactfracs[['under18']] <- sectorcontactfracs[['under18']] / newtotal;
   sectorcontactfracs[['workingage']] <- sectorcontactfracs[['workingage']] / newtotal;
+  # normalise
+  sectorcontactfracs = sectorcontactfracs/sum(sectorcontactfracs)
+  # fraction of workplace contacts from non-working adults
+  nwadults2w = (sectorcontactfracs[['X65plus']] + sectorcontactfracs[['under18']])*(pop_props[adInd]/sum(pop_props[-adInd]))
+  # fraction of workplace contacts from workers
+  w2w_frac = max(0, sectorcontactfracs[['workingage']] - nwadults2w)
+  c2w_dist = unname(sectorcontactfracs)
+  c2w_dist[2] = nwadults2w
+  # workplace contacts from non-workers
+  c2w_frac = sum(c2w_dist)
+  # workplace adult fraction of contacts
+  wp_adult_frac = nwadults2w + w2w_frac
+  # which of the working adults are not working? should come proportionally from nwadults2w
+  adult_customer_frac = NNrel*nwadults2w
+  # vector of customer contacts
+  customer_to_worker_frac = c(adult_customer_frac[1], c2w_dist[1]*pop_props[1:2]/sum(pop_props[1:2]), adult_customer_frac[2], c2w_dist[3])
   
-  prop_working = NN[1]/(NN[1]+NN[4])
-  target_work_contacts <- contacts$work_frac * workage_total / prop_working
-  worker_contacts_adults = sectorcontactfracs[['workingage']] * target_work_contacts
-  total_nonworker_contacts = workage_total - prop_working * target_work_contacts
-  total_worker_contacts = total_nonworker_contacts + target_work_contacts
-  rel_worker = prop_working*total_worker_contacts / ((1-prop_working)*total_nonworker_contacts)
-  w1 = worker_contacts_adults * rel_worker / (1 + rel_worker)
-  w2 = worker_contacts_adults - w1
-  s2 = prop_working*w2/(1-prop_working)
+  work_frac = contacts$work_frac # begin with data value
+  too_many_work_contacts = T
   
-  sectoragedist[,nSectors+c(1,2)] <- t(repmat(sectorcontactfracs[['under18']],2,1)) * repmat(pop_props[1:2] / sum(pop_props[1:2]),nSectors,1) 
-  sectoragedist[,nSectors+4] <- sectorcontactfracs[['X65plus']]
-  sectoragedist[,workage_indices] <- t(repmat(sectorcontactfracs[['workingage']],length(workage_indices),1)) * c(w1,w2)/(w1+w2)
-  
-  
-  community_to_worker_mat <- target_work_contacts * sectoragedist
-  community_to_worker_mat <- rbind(community_to_worker_mat,matrix(0,nrow=4,ncol=nStrata))
-  
-  worker_worker_mat <- matrix(0,nrow=nStrata,ncol=nStrata)
-  worker_worker_mat[1:nSectors,1:nSectors] <- community_to_worker_mat[1:nSectors,1:nSectors]
+  while(too_many_work_contacts){
+    
+    # number of workplace contacts just between workers
+    worker_worker_contacts = work_frac*workage_total*w2w_frac/prop_working
+    worker_worker_mat = matrix(0,nrow=5,ncol=5)
+    worker_worker_mat[1,1] = worker_worker_contacts
+    
+    # all worker contacts made at work
+    total_workplace_contacts <- worker_worker_contacts/w2w_frac
+    
+    # number of workplace contacts from non-working adults
+    CW_4 = nwadults2w*total_workplace_contacts / (x/2+prop_nw)
+    # number of workplace contacts from the other age groups
+    CW_2 = pop_props[1]/sum(pop_props[1:2]) * total_workplace_contacts * c2w_dist[1]
+    CW_3 = pop_props[2]/sum(pop_props[1:2]) * total_workplace_contacts * c2w_dist[1]
+    CW_5 = total_workplace_contacts * c2w_dist[3]
+    
+    # bring together in matrix
+    community_to_worker_mat <- c(x/2*CW_4, CW_2, CW_3, prop_nw*CW_4, CW_5) # 
+    community_to_worker_mat <- unname(rbind(community_to_worker_mat, matrix(0,nrow=4,ncol=5)))
+    
+    # get contacts going back from workers to community
+    total_cn_workerage = NN[workage_indices] %*% community_to_worker_mat[workage_indices,]
+    consumer_contacts <- total_cn_workerage / NN
+    worker_to_community_mat <- cbind(t(consumer_contacts),matrix(0,ncol=4,nrow=nStrata))
+    
+    # add together and check if there are too many workplace contacts
+    allworkmat <- worker_worker_mat + worker_to_community_mat + community_to_worker_mat
+    work_related_cm = collapse_cm(contact_matrix = allworkmat, NN)
+    too_many_work_contacts <- (work_related_cm[3,3] > CM_4_orig[3,3])
+    
+    # if so, reduce the fraction of contacts from work
+    if(too_many_work_contacts) {
+      work_frac = 0.9*work_frac
+      print(work_frac)
+    }
+  }
   
   contacts$worker_worker_mat <- worker_worker_mat
-  
-  community_to_worker_mat[1:nSectors,1:nSectors] <- 0
-  
-  total_cn_workerage = NN[workage_indices] %*% community_to_worker_mat[workage_indices,]
-  consumer_contacts <- total_cn_workerage / NN
-  consumer_contacts[workage_indices] <- consumer_contacts[workage_indices[length(workage_indices)]]
-  worker_to_community_mat <- cbind(t(consumer_contacts),matrix(0,ncol=4,nrow=nStrata))
-  
   contacts$community_worker_mat <- worker_to_community_mat + community_to_worker_mat
-  
-  # worker_to_community_mat + community_to_worker_mat
-  
-  # get marginal contacts by age for workers
-  av_workerage_contacts_full <- NNrel %*% community_to_worker_mat[workage_indices,]
-  av_workerage_contacts_collapsed <- c(av_workerage_contacts_full[,nSectors+1], av_workerage_contacts_full[,nSectors+2], sum(av_workerage_contacts_full[,workage_indices]), av_workerage_contacts_full[,nSectors+4])
-  
-  c_to_w_back <- av_workerage_contacts_collapsed * Npop4[3] / Npop4
   
   ## get new contact rates
   contacts$school1 <- CM_4_orig[1,1] * contacts$school1_frac
@@ -332,17 +356,9 @@ get_basic_contacts <- function(data, contacts) {
   contacts$school_mat = school_mat
   
   ## subtract contacts from C4
-  # school
-  CM_4 <- CM_4 - school_mat
-  # customer to worker
-  CM_4[3,] <- pmax(CM_4_orig[3,] - av_workerage_contacts_collapsed, 0)
-  # worker to customer
-  # CM_4[,3] <- pmax(CM_4[,3] - c_to_w_back, 0)
-  CM_4[c(1,2,4),3] = CM_4[c(1,2,4),3] - c_to_w_back[c(1,2,4)]
+  CM_4 <- CM_4_orig - school_mat - work_related_cm
   
   # hospitality
-  
-  ##!! too many work contacts to infants
   hospitality_age <- contacts$hospitality_age # each column tells you how hospitality contacts are distributed between
   # under 20, working age, and retired age
   # split first row into two age groups
@@ -351,7 +367,7 @@ get_basic_contacts <- function(data, contacts) {
                            (1-infants)*hospitality_age[1,], 
                            hospitality_age[2:3,])
   total_contacts <- rowSums(CM_4)
-  contacts$hospitality_contacts <- t(repmat(total_contacts * contacts$hospitality_frac,4,1)) * hospitality_age
+  contacts$hospitality_contacts <- t(pracma::repmat(total_contacts * contacts$hospitality_frac,4,1)) * hospitality_age
   CM_4 <- pmax(CM_4 - contacts$hospitality_contacts, 0)
   
   ## save
@@ -359,6 +375,10 @@ get_basic_contacts <- function(data, contacts) {
   # contacts$sectorcontactfracs <- NULL
   contacts$CM_4 <- CM_4
   contacts$contact_props <- contact_props
+  
+  data$contacts = contacts
+  # contact_matrix = p2MakeDs(data, data$NNs)
+  # CM_4_orig - collapse_cm(contact_matrix, NN)
   
   return(contacts)
 }
@@ -416,13 +436,13 @@ p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_wor
   ad_row = community_mat[, nSectors + adInd]
   for(i in 1:length(workage_indices))
     community_mat[,workage_indices[i]] = ad_row * NNrel[i]
-  # community_mat[, workage_indices] <- t(repmat(community_mat[, nSectors + adInd],nSectors+1,1)) * repmat(NNrel,nStrata,1)
+  # community_mat[, workage_indices] <- t(pracma::repmat(community_mat[, nSectors + adInd],nSectors+1,1)) * pracma::repmat(NNrel,nStrata,1)
   
   ## WORKER-WORKER AND COMMUNITY-WORKER MATRICES
   
   effective_openness <- pmax(0, relative_work - home_working)
-  effective_openness <- c(effective_openness,rep(0,4))
-  # effective_openness_mat <- t(repmat(effective_openness^2, nStrata, 1))
+  #effective_openness <- c(effective_openness,rep(0,4))
+  # effective_openness_mat <- t(pracma::repmat(effective_openness^2, nStrata, 1))
   
   # customer--worker
   communityworker_mat <- contacts$community_worker_mat * effective_openness * relative_consumption
@@ -431,22 +451,7 @@ p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_wor
   # worker--worker
   workerworker_mat <- contacts$worker_worker_mat * effective_openness^2
   
-  ## add all together
-  # contact_matrix <- community_mat + communitytoworker_mat + worker_back
-  
-  # return(contact_matrix)
-  
-  # worker--worker contacts
-  # wwcontacts <- matrix(0, nrow = nStrata, ncol = nStrata)
-  # wwcontacts[1:nSectors, 1:nSectors] <- (communitytoworker_mat[1:nSectors, 1:nSectors] + worker_back[1:nSectors, 1:nSectors]) 
-  
-  # community--worker contacts
-  # cwcontacts <- matrix(0, nrow = nStrata, ncol = nStrata)
-  # cwcontacts[1:nSectors, (nSectors + 1):nStrata] <- communitytoworker_mat[1:nSectors, (nSectors + 1):nStrata]
-  # cwcontacts[(nSectors + 1):nStrata, 1:nSectors] <- worker_back[(nSectors + 1):nStrata, 1:nSectors]
-  
-  # add all together
-  contact_matrix <- community_mat + workerworker_mat + communityworker_mat # wwcontacts + cwcontacts
+  contact_matrix <- community_mat + workerworker_mat + communityworker_mat 
   
   return(contact_matrix)
   
@@ -457,7 +462,7 @@ collapse_cm <- function(contact_matrix, NNs) {
   Ci <- cbind(contact_matrix[, 2], contact_matrix[, 3], rowSums(contact_matrix[, c(1, 4)]), contact_matrix[, 5])  # sum of the columns
   cm <- rbind(Ci[2, ],
               Ci[3, ],
-              rowSums(NNs[c(1, 4)] * t(Ci[c(1, 4), ])) / sum(NNs[c(1, 4)]),
+              colSums(NNs[c(1, 4)] * (Ci[c(1, 4), ]))/sum(NNs[c(1, 4)]),
               Ci[5, ])
   
   return(cm)
@@ -576,14 +581,11 @@ get_candidate_infectees <- function(nStrata, dis, S, N, contact_matrix) {
   sig2 <- dis$prob_symp / dis$TEtoI
   g1 <- 1 / dis$TIatoR
   g2 <- (1 - dis$prob_H) / dis$TIs
-  g3 <- (1 - dis$pd) / dis$Th
   h <- dis$prob_H / dis$TIs
   
   red <- dis$asym_rel_transmission
   
-  S_sum <- S 
-  
-  FOIin <- contact_matrix * t(repmat(S_sum * dis$rr_infection,nStrata,1)) / repmat(N, nStrata, 1)
+  FOIin <- contact_matrix * t(pracma::repmat(S, nStrata, 1)) / pracma::repmat(N, nStrata, 1)
   
   Fmat <- matrix(0, 3 * nStrata, 3 * nStrata)
   Fmat[1:nStrata, (nStrata + 1):(3*nStrata)] <- cbind(red * FOIin, FOIin)
@@ -649,7 +651,7 @@ p2SimVax <- function(data, dis, p2, econ) {
                          method='impAdams_d')
   # store counterfactual values
   econ$counter_time <- tmpout[,1]
-  linking_values = t(apply(tmpout[,-1],1,function(y)unlist(econ$epi_econ_link(y,econ))))
+  linking_values = t(apply(tmpout[,-1],1,function(y)unlist(econ$econ_to_epi(y,econ))))
   econ$counter_cons <- linking_values[,1]
   econ$counter_worker <- linking_values[,2]
   econ$integrate <- 1
@@ -712,13 +714,15 @@ mitigate <- function(t, y, parms) {
 }
 
 
-fear_of_infection = function(epi_var,econ,
-                             gradient = 1000 # small value => sharp corners
+epi_to_econ = function(epi_var,econ,
+                             gradient = 10000 # small value => sharp corners. and oscillating epidemic.
                              , ref_val = 200000 # value whereabouts change in behaviour occurs
                              , baseline = .5 # minimum value
 ){
   
-  scalar = 1/(1+exp(-(ref_val-epi_var)/gradient))
+  # make sure we start at one
+  ref_scalar = 1/(1+exp(-(ref_val)/gradient))
+  scalar = 1/(1+exp(-(ref_val-epi_var)/gradient)) / ref_scalar
   prop_to = baseline + (1-baseline) * scalar
   
   # update all parameters in the econ list that are to be scaled
@@ -767,7 +771,7 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
   
   integrate = econ$integrate
   if (integrate==1){
-    econ = fear_of_infection(sum(H),econ,ref_val=data$ref_val,baseline=data$baseline)
+    econ = epi_to_econ(sum(H),econ,ref_val=data$ref_val,baseline=data$baseline)
     # labour force (lf) is used in model 3 but not 2 or 1
     # lf is the original lf minus those dead and in hospital
     econ$lf = econ$lf - D[1] - H[1]
@@ -796,10 +800,10 @@ ODEs <- function(data, i, t, dis, y, p2, econ) {
     counter_time = econ$counter_time
     if(t<min(counter_time)) t = min(counter_time)
     if(t>max(counter_time)) t = max(counter_time)
-    counter_cons = interp1(x=counter_time,y=econ$counter_cons,xi = t)
-    counter_worker = interp1(x=counter_time,y=econ$counter_worker,xi = t)
+    counter_cons = pracma::interp1(x=counter_time,y=econ$counter_cons,xi = t)
+    counter_worker = pracma::interp1(x=counter_time,y=econ$counter_worker,xi = t)
     
-    linked_vals = econ$epi_econ_link(y,econ)
+    linked_vals = econ$econ_to_epi(y,econ)
     relative_consumption = linked_vals$cons_link/counter_cons
     relative_work = linked_vals$work_link/counter_worker #
     # print(c(t,linked_vals$cons_link,counter_cons,relative_consumption,relative_work))

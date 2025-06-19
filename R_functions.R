@@ -713,7 +713,7 @@ mitigate <- function(t, y, parms) {
 
 
 fear_of_infection = function(epi_var,econ,
-                             gradient = 1000 # small value => sharp corners
+                             gradient = 10000 # small value => sharp corners
                              , ref_val = 200000 # value whereabouts change in behaviour occurs
                              , baseline = .5 # minimum value
 ){

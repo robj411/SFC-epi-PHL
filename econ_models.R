@@ -66,7 +66,7 @@ model1$get_cons = function(y,econ){
 model1$get_cons_from_out = function(y,econ,H,data,integrate=1){
   H_h = y[,2]
   if (integrate==1){
-    econ = fear_of_infection(H,econ,ref_val=data$ref_val,baseline=data$baseline)
+    econ = epi_to_econ(H,econ,ref_val=data$ref_val,baseline=data$baseline)
   }
   cons = econ$get_cons(H_h,econ)
   cons
@@ -80,7 +80,7 @@ model1$get_gdp_from_out = function(y,econ,H,data,integrate=1){
 }
 
 ##!! reuse consumption as we do not model workers in this economic model
-model1$epi_econ_link = function(y,econ) {
+model1$econ_to_epi = function(y,econ) {
   H_h = y[1]
   cons_link = econ$get_cons(H_h,econ)
   list(cons_link=cons_link, work_link=cons_link)
@@ -142,7 +142,7 @@ model2$get_cons = function(y,econ) {
 }
 
 
-model2$epi_econ_link = function(y,econ) {
+model2$econ_to_epi = function(y,econ) {
   H_h = y[1]
   alpha0 = econ$alpha0
   alpha1offline = econ$alpha1offline
@@ -204,7 +204,7 @@ model3$get_cons = function(y,econ) {
   C
 }
 
-model3$epi_econ_link = function(y,econ) {
+model3$econ_to_epi = function(y,econ) {
   H_h = y[1]
   alpha0 = econ$alpha0
   alpha1offline = econ$alpha1offline
@@ -331,7 +331,7 @@ pc_model$p_to_scale <- c('alpha1','alpha2')
 pc_model$wealth = 'v'
 
 ##!! reuse consumption as we do not model workers in this economic model
-pc_model$epi_econ_link = function(y,econ) {
+pc_model$econ_to_epi = function(y,econ) {
   cons_link = y[which(econ$econvarnames=='cons')]
   list(cons_link=cons_link, work_link=cons_link)
 }
@@ -449,7 +449,7 @@ modelpc2$odes = function(t,y,econ){
   
 }
 
-modelpc2$epi_econ_link = function(y,econ) {
+modelpc2$econ_to_epi = function(y,econ) {
   ##!! reuse consumption as we do not model workers in this economic model
   cons_link = y[which(econ$econvarnames=='cons_off')]
   list(cons_link=cons_link, work_link=cons_link)
@@ -467,7 +467,7 @@ modelpc3$wage = y0/modelpc3$lf
 
 modelpc3$p_to_scale <- c('alpha1offline','alpha2offline','prop_to_work')
 
-modelpc3$epi_econ_link = function(y,econ) {
+modelpc3$econ_to_epi = function(y,econ) {
   lf = econ$lf
   cons_link = y[which(econ$econvarnames=='cons_off')]
   work_link = lf * econ$prop_to_work

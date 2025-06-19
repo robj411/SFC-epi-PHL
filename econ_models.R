@@ -39,7 +39,7 @@ model1$econ_init = with(model1,{
 
 # variable names we need to know later
 # which parameters we will scale
-model1$p_to_scale <- c('alpha1','alpha2')
+model1$p_to_scale <- c('alpha0','alpha1','alpha2')
 # which variable records wealth
 model1$wealth = 'H_h'
 # the names of the variables we solve for in the econ ODE model

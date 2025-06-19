@@ -116,7 +116,7 @@ Which parameters should be scaled by the epi response function:
 cat(model1$p_to_scale)
 ```
 
-    ## alpha1 alpha2
+    ## alpha0 alpha1 alpha2
 
 Annual GDP, which is used as the counterfactual for estimating loss:
 
@@ -164,13 +164,13 @@ are both 21 trillion PHP; and government spending is 3.4 trillion PHP.
 
 Given
 
-$$\mathcal{H}_h(0) = \frac{\mathcal{C}(0)(1-\alpha_1(1-\theta)) - \alpha_0 - \alpha_1(1-\theta)\mathcal{G}}{\alpha_2}$$
+$$ \mathcal{H}_h(0) = \frac{(1 - \alpha_1)\mathcal{C}(0) - \alpha_0}{\alpha_2}$$
 
 we can compute wealth, $\mathcal{H}_h$, given our choices of the
 $\alpha$ parameters as
 
 ``` r
-Hh0 = with(model1,( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2)
+Hh0 = with(model1,( cons0*(1-alpha1) - alpha0)/alpha2)
 ```
 
 giving 4.7 trillion PHP.

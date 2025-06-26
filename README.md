@@ -50,11 +50,11 @@ from <https://github.com/marcoverpas/Italy-SFC-Model> and
 
 <div class="figure">
 
-<img src="README_files/figure-gfm/consumption-1.png" alt="Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA and new infections." width="70%" />
+<img src="README_files/figure-gfm/consumption-1.png" alt="Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA, contacts, and new infections." width="70%" />
 <p class="caption">
 <span id="fig:consumption"></span>Figure 1.1: Epi variables reduce
-propensity to consume, which reduces consumption, and therefore GVA and
-new infections.
+propensity to consume, which reduces consumption, and therefore GVA,
+contacts, and new infections.
 </p>
 
 </div>
@@ -87,7 +87,7 @@ cat(model1$econ_init)
 
     ## 4.748112
 
-The number of econ ODEs (so that the ODE model knows where the epi
+The number of econ ODEs (so that the ODE solver knows where the epi
 variables start):
 
 ``` r
@@ -129,7 +129,7 @@ cat(model1$gdp)
 
 Then there are functions to compute consumption (`get_cons`) and GDP
 (`get_gdp_from_out`), to compute the fractional reduction of consumption
-and labour, and the ODE (`odes`).
+and labour (`econ_to_epi`), and the ODEs (`odes`).
 
 ### 1.1.2 Initial conditions
 

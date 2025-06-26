@@ -107,7 +107,7 @@ source('econ_models.R')
 
 ## Model 1: Integrating consumption and the epidemic
 
-```{tikz consumption, fig.cap = "Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA and new infections.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
+```{tikz consumption, fig.cap = "Epi variables reduce propensity to consume, which reduces consumption, and therefore GVA, contacts, and new infections.", fig.ext = 'png',echo=F, out.width="70%", engine.opts=list(extra.preamble = xfun::read_utf8("external.tex"))}
 
 \begin{tikzpicture}
   [shorten <=2pt,shorten >=4pt,>=stealth]
@@ -121,10 +121,10 @@ source('econ_models.R')
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
 \node[latent,draw=black,left of=cons, xshift=5.5cm, yshift=-4cm] (ptc){Propensity to consume};
 \node[latent,draw=black,left of=cons, xshift=5.5cm, yshift=2cm] (cnt){Contact rates};
-\draw  (ptc.west) edge[bend left=30, -{Stealth[length=3mm, width=4mm]}] node[left]{Q1} (cons.south);
-\draw  (cons) edge[bend left=20,-{Stealth[length=3mm, width=4mm]}] node[above]{Q3}  (cnt.west);
-\draw (cnt) edge[bend left=20,-{Stealth[length=3mm, width=4mm]}] node[above]{Q4}  (inf.north);
-\draw (plate2) edge[bend left=20,-{Bar[length=0mm, width=4mm]}] node[below]{Q2}  (ptc.east);
+\draw  (ptc.west) edge[bend left=30, -{Stealth[length=3mm, width=4mm]}] node[left]{} (cons.south);
+\draw  (cons) edge[bend left=20,-{Stealth[length=3mm, width=4mm]}] node[above]{}  (cnt.west);
+\draw (cnt) edge[bend left=20,-{Stealth[length=3mm, width=4mm]}] node[above]{}  (inf.north);
+\draw (plate2) edge[bend left=20,-{Bar[length=0mm, width=4mm]}] node[below]{}  (ptc.east);
 \end{tikzpicture}
 ```
 
@@ -151,7 +151,7 @@ cat(model1$econ_init)
 
 ```
 
-The number of econ ODEs (so that the ODE model knows where the epi variables start):
+The number of econ ODEs (so that the ODE solver knows where the epi variables start):
 
 ```{r,echo=T}
 cat(model1$nEconODEs)
@@ -182,7 +182,7 @@ cat(model1$gdp)
 ```
 
 
-Then there are functions to compute consumption (`get_cons`) and GDP (`get_gdp_from_out`), to compute the fractional reduction of consumption and labour, and the ODE (`odes`). 
+Then there are functions to compute consumption (`get_cons`) and GDP (`get_gdp_from_out`), to compute the fractional reduction of consumption and labour (`econ_to_epi`), and the ODEs (`odes`). 
 
 
 ### Initial conditions

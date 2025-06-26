@@ -19,17 +19,21 @@ source('R_functions.R');
 # read or create epi and country structures
 datafile <- 'data_file.Rds'
 if(!file.exists(datafile)){
+  library(Rilostat)
+  dat <- get_ilostat(id = 'EAP_DWAP_SEX_AGE_RT_A', segment = 'indicator') 
+  lfpr <- subset(dat,ref_area=='PHL'&sex=='SEX_T'&time==2022&classif1=='AGE_AGGREGATE_TOTAL')$obs_value/100
+  # 0.6144
   
   ## country variables ###############################
-  
-  CD_list <- load_country_data()
+  datapath = '../p2_drivers/data/'
+  CD_list <- load_country_data(datapath)
   CD <- CD_list[[1]]
   country_parameter_distributions <- CD_list[[2]]
-  data <- data_start()
+  data <- data_start(datapath)
   
   ## disease variables ############################
   
-  sevenpathogens <- read.csv('../Daedalus-P2-Dashboard/data/sevenpathogens.csv')
+  sevenpathogens <- read.csv(paste0(datapath,'sevenpathogens.csv'))
   
   dis <- list()
   dis$R0 <- 1.5 # choosing something milder. sevenpathogens$R0[5]

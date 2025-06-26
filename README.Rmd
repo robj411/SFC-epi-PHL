@@ -38,7 +38,7 @@ always_allow_html: true
 source('R_script.R')
 ```
 
-which will load also the files `data_file.Rds`, which contains stored objects for parametrising the model; `R_functions.R`, which contains all the functions for solving the epi model; and `econ_models.R`, which contains a few econ models which correspond to the overleaf document.
+which will load also the files `data_file.Rds`, which contains stored objects for parametrising the model; `R_functions.R`, which contains all the functions for solving the epidemiological model; and `econ_models.R`, which contains a few economic models which correspond to the overleaf document.
 
 Note that the epi functions in `R_functions.R` were copied over from Daedalus, so they have a lot of functionality that we are not using, including "events" used for mitigation and things to do with vaccination. I leave them in here in case any of it is needed in future.
 
@@ -112,17 +112,19 @@ source('econ_models.R')
 \begin{tikzpicture}
   [shorten <=2pt,shorten >=4pt,>=stealth]
 \node[latent,draw=black] (cons){Consumption};
-\node[latent,draw=black,left of=cons, xshift=-3cm] (gva){GVA};
+\node[latent,draw=black,left of=cons, xshift=-2cm] (gva){GDP};
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate1} {(cons) (gva)} {Econ} {none}; 
 \draw [line,thick,draw=black,-{Stealth[length=3mm, width=3mm]}] (cons)  --  node[text width=1cm,align=center,below] {}  (gva);
-\node[latent,draw=black,left of=cons, xshift=7cm] (inf){Infections};
+\node[latent,draw=black,left of=cons, xshift=10.5cm] (inf){Infections};
 \node[latent,draw=black,below of=inf] (hosp){Hospitalisations};
 \node[latent,draw=black,below of=hosp] (death){Deaths};
 \plate[inner sep=0.25cm, yshift=0.12cm] {plate2} {(inf) (hosp) (death)} {Epi} {none}; 
-\node[latent,draw=black,left of=cons, xshift=4cm, yshift=-5cm] (ptc){Propensity to consume};
-\draw [-|,-{Stealth[length=3mm, width=4mm]}] (ptc) edge[bend left=20]  (cons.south);
-\draw [-|,-{Stealth[length=3mm, width=4mm]}] (cons) edge[bend left=30]  (inf.west);
-\draw [-|,-{Bar[length=0mm, width=4mm]}] (plate2) edge[bend left=30]  (ptc.east);
+\node[latent,draw=black,left of=cons, xshift=5.5cm, yshift=-4cm] (ptc){Propensity to consume};
+\node[latent,draw=black,left of=cons, xshift=5.5cm, yshift=2cm] (cnt){Contact rates};
+\draw  (ptc.west) edge[bend left=30, -{Stealth[length=3mm, width=4mm]}] node[left]{Q1} (cons.south);
+\draw  (cons) edge[bend left=20,-{Stealth[length=3mm, width=4mm]}] node[above]{Q3}  (cnt.west);
+\draw (cnt) edge[bend left=20,-{Stealth[length=3mm, width=4mm]}] node[above]{Q4}  (inf.north);
+\draw (plate2) edge[bend left=20,-{Bar[length=0mm, width=4mm]}] node[below]{Q2}  (ptc.east);
 \end{tikzpicture}
 ```
 
@@ -180,7 +182,7 @@ cat(model1$gdp)
 ```
 
 
-Then there are functions to compute consumption (`get_cons`) and GDP (`get_gdp_from_out`), to compute the fractional reduction of consumption (and labour supply - here proxied by consumption -- `epi_econ_link`), and the ODE (`odes`). 
+Then there are functions to compute consumption (`get_cons`) and GDP (`get_gdp_from_out`), to compute the fractional reduction of consumption and labour, and the ODE (`odes`). 
 
 
 ### Initial conditions

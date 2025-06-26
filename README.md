@@ -31,8 +31,9 @@ source('R_script.R')
 
 which will load also the files `data_file.Rds`, which contains stored
 objects for parametrising the model; `R_functions.R`, which contains all
-the functions for solving the epi model; and `econ_models.R`, which
-contains a few econ models which correspond to the overleaf document.
+the functions for solving the epidemiological model; and
+`econ_models.R`, which contains a few economic models which correspond
+to the overleaf document.
 
 Note that the epi functions in `R_functions.R` were copied over from
 Daedalus, so they have a lot of functionality that we are not using,
@@ -128,8 +129,7 @@ cat(model1$gdp)
 
 Then there are functions to compute consumption (`get_cons`) and GDP
 (`get_gdp_from_out`), to compute the fractional reduction of consumption
-(and labour supply - here proxied by consumption – `epi_econ_link`), and
-the ODE (`odes`).
+and labour, and the ODE (`odes`).
 
 ### 1.1.2 Initial conditions
 

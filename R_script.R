@@ -20,9 +20,6 @@ source('R_functions.R');
 datafile <- 'data_file.Rds'
 if(!file.exists(datafile)){
   library(Rilostat)
-  dat <- get_ilostat(id = 'EAP_DWAP_SEX_AGE_RT_A', segment = 'indicator') 
-  lfpr <- subset(dat,ref_area=='PHL'&sex=='SEX_T'&time==2022&classif1=='AGE_AGGREGATE_TOTAL')$obs_value/100
-  # 0.6144
   
   ## country variables ###############################
   datapath = '../p2_drivers/data/'

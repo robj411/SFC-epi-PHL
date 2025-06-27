@@ -154,6 +154,30 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   Npop4 <- sapply(data$ageindex, function(x) sum(Npop[x]))
   data$Npop4 <- Npop4
   
+  # employment rate
+  dat <- get_ilostat(id = 'EAP_DWAP_SEX_AGE_RT_A', segment = 'indicator') 
+  fiveyr <- subset(dat,ref_area=='PHL'&sex=='SEX_T'&time==2022&grepl('5YR',classif1))
+  fiveyr$pop <- c(sum(Npop[4:21]),Npop[4:13],sum(Npop[14:21]))
+  
+  shrinkage = with(subset(tmp,classif1%in%c('AGE_5YRBANDS_Y60-64','AGE_5YRBANDS_Y55-59','AGE_5YRBANDS_Y50-54')),obs_value[2:3]/obs_value[1:2])
+  shrinkagerate = shrinkage[2]/shrinkage[1]
+  lastval = fiveyr$obs_value[13-2]
+  workers = c()
+  for(i in 14:21){
+    thispop = Npop[i]
+    newval = lastval*shrinkage[2]*shrinkagerate^(i-14)
+    workers[i-13] = newval*thispop/100
+    lastval = newval
+  }
+  # sum(workers)
+  # sum(Npop[14:21])*subset(fiveyr,classif1%in%c('AGE_5YRBANDS_YGE65'))$obs_value/100
+  # workers
+  retiredage = workers/Npop[14:21]*100
+  percentages <- c(subset(fiveyr,!classif1%in%c('AGE_5YRBANDS_TOTAL','AGE_5YRBANDS_YGE65'))$obs_value, retiredage[1])
+  populations <- Npop[4:14]
+  lfpr <- sum(percentages*populations/100)/sum(populations)
+  data$employmentrate = lfpr
+  
   # population by stratum
   # sample workforce
   # nonempind <- which(!is.na(CD$NNs1) & country_indices)
@@ -168,7 +192,7 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   
   wipindex <- which(country_parameter_distributions$parameter_name == 'workforce_in_place' & 
                       country_parameter_distributions$igroup == income_level)
-  workers_by_sector <- sum(allsectors)
+  workers_by_sector <- data$employmentrate*Npop4[3] # sum(allsectors)
   # put into daedalus order: workers by sector, then infants, adolescents,
   # non-workers, and retired
   NNs <- as.numeric(c(workers_by_sector,Npop4[1],Npop4[2],Npop4[3]-sum(workers_by_sector),Npop4[4]))
@@ -219,7 +243,7 @@ p2RandCountry <- function(data, CD, income_level, country_parameter_distribution
   nSectors = 1
   data$NNs[data$NNs == 0] <- 1
   data$nStrata <- length(data$NNs)
-  data$employmentrate <- sum(data$NNs[1:nSectors]) / Npop4[3]
+  # data$employmentrate <- sum(data$NNs[1:nSectors]) / Npop4[3]
   
   # generate basic contact components
   data$contacts <- get_basic_contacts(data, contacts)

@@ -76,20 +76,21 @@ p2 <- ldata_dis_p2$p2
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model1
+econ = model3
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
 eplot = epi_to_econ(epivars,model1,ref_val=100000)
-(plotresponse <- ggplot() + 
-  geom_line(aes(x=epivars/1e3,y=eplot$alpha1/model1$alpha1),linewidth=2,colour='midnightblue') +
+(plotresponse <- ggplot()  + 
+    geom_line(aes(x=epivars/1e3,y=eplot$alpha1/model1$alpha1),linewidth=2,colour='midnightblue') +
   theme_bw(base_size = 15) +
   labs(x='Thousand hospital cases',y='Relative propensity to consume') +
   scale_y_continuous(limits=c(0,1)) +
     geom_abline(slope=-1/85,intercept=1.925,colour='grey',linewidth=1.5,linetype=2) +
     geom_vline(xintercept=100,colour='grey',linewidth=1.5) +
-    geom_hline(yintercept=.5,colour='grey',linewidth=1.5))
-# ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
+    geom_hline(yintercept=.5,colour='grey',linewidth=1.5) + 
+    geom_line(aes(x=epivars/1e3,y=eplot$alpha1/model1$alpha1),linewidth=2,colour='midnightblue'))
+ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
 
 ## simulate ###########################################################
 
@@ -150,7 +151,11 @@ for(rv in 1:nrow(outtab))
   Rout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, R_index[1]]
   
   H = rowSums(Hout)
+  Hw = Hout[,1]
+  Dw = Dout[,1]
   Hc = rowSums(Hout0)
+  Hwc = Hout0[,1]
+  Dwc = Dout0[,1]
   
   as_pc <- function(scen,counter){
     100*c(scen/counter[1],counter/counter)
@@ -158,10 +163,14 @@ for(rv in 1:nrow(outtab))
   
   plotdata = data.frame(Day=c(Tout,Tout0),
                         Hospitalised=c(rowSums(Hout),rowSums(Hout0)),
-                        Consumption=as_pc(econ$get_cons_from_out(odevar,econ,H,ldata,1),econ$get_cons_from_out(cntr,econ,Hc,ldata,0)),
-                        Wealth=as_pc(odevar[,which(econ$econvarnames==econ$wealth)+1],cntr[,which(econ$econvarnames==econ$wealth)+1]),
-                        GDP=as_pc(econ$get_gdp_from_out(odevar,econ,H,ldata,1),econ$get_gdp_from_out(cntr,econ,Hc,ldata,0)),
-                        Integrated=c(rep('Integrated model',length(Tout)),rep('Counterfactual',length(Tout0))))
+                        Consumption=as_pc(econ$get_cons_from_out(odevar,econ,H,Hw,Dw,ldata,1),
+                                          econ$get_cons_from_out(cntr,econ,Hc,Hwc,Dwc,ldata,0)),
+                        Wealth=as_pc(odevar[,which(econ$econvarnames==econ$wealth)+1],
+                                     cntr[,which(econ$econvarnames==econ$wealth)+1]),
+                        GDP=as_pc(econ$get_gdp_from_out(odevar,econ,H,ldata,1),
+                                  econ$get_gdp_from_out(cntr,econ,Hc,ldata,0)),
+                        Integrated=c(rep('Integrated model',length(Tout)),
+                                     rep('Counterfactual',length(Tout0))))
   colnames(plotdata)[3:5] <- c('Consumption, % of counterfactual','Wealth, % of counterfactual','GDP, % of counterfactual')
   plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
     geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +

@@ -63,7 +63,7 @@ model1$get_cons = function(y,econ){
 }
 
 # function to get consumption from ode matrix output
-model1$get_cons_from_out = function(y,econ,H,data,integrate=1){
+model1$get_cons_from_out = function(y,econ,H,Hw,Dw,data,integrate=1){
   H_h = y[,2]
   if (integrate==1){
     econ = epi_to_econ(H,econ,ref_val=data$ref_val,baseline=data$baseline)
@@ -75,7 +75,7 @@ model1$get_cons_from_out = function(y,econ,H,data,integrate=1){
 # function to get gdp from ode matrix output
 model1$get_gdp_from_out = function(y,econ,H,data,integrate=1){
   G = econ$G
-  cons = econ$get_cons_from_out(y,econ,H,data,integrate)
+  cons = econ$get_cons_from_out(y,econ,H,Hw,Dw,data,integrate)
   cons + G
 }
 
@@ -163,31 +163,27 @@ model2$econ_to_epi = function(y,econ) {
 
 ## model 3: labour supply ###############################
 
-model3 = model2
+model3 = model1
 model3$model_name = 'model3'
 model3$prop_to_work = 1
 model3$y0 = model3$gdp/365
 model3$lf = ldata$NNs[1]
-model3$wage = model3$y0/model3$lf 
+model3$productivity = model3$y0/model3$lf 
 
-model3$p_to_scale <- c('alpha1offline','alpha2offline','prop_to_work')
+model3$p_to_scale <- c('alpha0','alpha1','alpha2','prop_to_work')
 
 model3$get_cons = function(y,econ) {
   H_h = y
   alpha0 = econ$alpha0
-  alpha1online = econ$alpha1online
-  alpha2online = econ$alpha2online
-  alpha1offline = econ$alpha1offline
-  alpha2offline = econ$alpha2offline
-  alpha1 = alpha1online + alpha1offline
-  alpha2 = alpha2online + alpha2offline
+  alpha1 = econ$alpha1
+  alpha2 = econ$alpha2
   theta = econ$theta
   G = econ$G
   prop_to_work = econ$prop_to_work
   
   # find out the labour supply
-  wb_s = econ$lf * prop_to_work * econ$wage
-  cons_s = pmax(0, wb_s - G)
+  Y_s = econ$lf * prop_to_work * econ$productivity
+  cons_s = pmax(0, Y_s - G)
   
   # compute cons_d assuming no reduction in labour supply
   denom = 1 - alpha1*(1 - theta)
@@ -195,8 +191,6 @@ model3$get_cons = function(y,econ) {
   
   # choose min
   C = cons_s
-  # if(is.na(cons)) browser()
-  # print(format(c(cons,cons_d,cons_s),digits=20))
   C[cons_d <= C + 1e-10] <- cons_d[cons_d <= C + 1e-10]
   # if(cons_d <= cons_s + 1e-10){
   #   C = cons_d
@@ -204,22 +198,27 @@ model3$get_cons = function(y,econ) {
   C
 }
 
+# function to get amounts of economic activity, which will be compared to the counterfactual
 model3$econ_to_epi = function(y,econ) {
   H_h = y[1]
-  alpha0 = econ$alpha0
-  alpha1offline = econ$alpha1offline
-  alpha2offline = econ$alpha2offline
-  alpha1 = econ$alpha1online + alpha1offline
-  alpha2 = econ$alpha2online + alpha2offline
-  G = econ$G
-  denom = 1 - alpha1*(1 - theta)
-  ##!! unless in-person consumption is also limited by labour supply...
-  cons_link = (alpha0 + alpha1offline*G*(1-theta) + alpha2offline*H_h) / denom
-  # C = econ$get_cons(H_h,econ)
-  # cons_link = (alpha1offline + alpha2offline) / (alpha1 + alpha2) * C
-  work_link = econ$lf * econ$prop_to_work
+  
+  cons_link = econ$get_cons(H_h,econ)
+  work_link = (cons_link + econ$G)/econ$productivity # this is Employment
   list(cons_link=cons_link, work_link=work_link)
   
+}
+
+# function to get consumption from ode matrix output
+model3$get_cons_from_out = function(y,econ,Htotal,Hworkers,Dworkers,data,integrate=1){
+  H_h = y[,2]
+  if (integrate==1){
+    econ = epi_to_econ(Htotal,econ,ref_val=data$ref_val,baseline=data$baseline)
+    # labour force (lf) is used in model 3 but not 2 or 1
+    # lf is the original lf minus those dead and in hospital
+    econ$lf = econ$lf - Dworkers - Hworkers
+  }
+  cons = econ$get_cons(H_h,econ)
+  cons
 }
 
 ## model 4 imports and exports ##############################################

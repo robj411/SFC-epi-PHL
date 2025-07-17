@@ -30,6 +30,9 @@ model1$alpha1 = 0.9 # choices
 model1$alpha2 = .2933/365 # choices; goes from annual to daily
 model1$alpha0 = cons0*(1-model1$alpha1)/3 # choices
 model1$gdp = y0*365 # for final comparisons
+model1$y0 = model1$gdp/365
+model1$lf = ldata$NNs[1]
+model1$productivity = model1$y0/model1$lf 
 
 # get initial conditions
 model1$econ_init = with(model1,{
@@ -79,11 +82,13 @@ model1$get_gdp_from_out = function(y,econ,H,data,integrate=1){
   cons + G
 }
 
-##!! reuse consumption as we do not model workers in this economic model
+# function to get amounts of economic activity, which will be compared to the counterfactual
 model1$econ_to_epi = function(y,econ) {
   H_h = y[1]
   cons_link = econ$get_cons(H_h,econ)
-  list(cons_link=cons_link, work_link=cons_link)
+  work_link = (cons_link + econ$G)/econ$productivity # this is Employment
+  list(cons_link=cons_link, work_link=work_link)
+  
 }
 
 model1$odes = function(t,y,econ){
@@ -149,14 +154,13 @@ model2$econ_to_epi = function(y,econ) {
   alpha2offline = econ$alpha2offline
   alpha1 = econ$alpha1online + alpha1offline
   alpha2 = econ$alpha2online + alpha2offline
-  # in-person component of consumption
-  # C = econ$get_cons(H_h,econ)
-  # cons_link = (alpha0 + alpha1offline + alpha2offline) / (alpha0 + alpha1 + alpha2) * C
+  C = econ$get_cons(H_h,econ)
   G = econ$G
   denom = 1 - alpha1*(1 - theta)
+  # in-person component of consumption
   cons_link = (alpha0 + alpha1offline*G*(1-theta) + alpha2offline*H_h) / denom
-  ##!! reuse consumption for work link as we do not model workers in this economic model
-  list(cons_link=cons_link, work_link=cons_link)
+  work_link = (C + G)/econ$productivity # this is Employment
+  list(cons_link=cons_link, work_link=work_link)
 }
 
 
@@ -166,9 +170,6 @@ model2$econ_to_epi = function(y,econ) {
 model3 = model1
 model3$model_name = 'model3'
 model3$prop_to_work = 1
-model3$y0 = model3$gdp/365
-model3$lf = ldata$NNs[1]
-model3$productivity = model3$y0/model3$lf 
 
 model3$p_to_scale <- c('alpha0','alpha1','alpha2','prop_to_work')
 
@@ -185,7 +186,7 @@ model3$get_cons = function(y,econ) {
   Y_s = econ$lf * prop_to_work * econ$productivity
   cons_s = pmax(0, Y_s - G)
   
-  # compute cons_d assuming no reduction in labour supply
+  # compute cons_d (consumption assuming no reduction in labour supply)
   denom = 1 - alpha1*(1 - theta)
   cons_d = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
   
@@ -196,16 +197,6 @@ model3$get_cons = function(y,econ) {
   #   C = cons_d
   # }
   C
-}
-
-# function to get amounts of economic activity, which will be compared to the counterfactual
-model3$econ_to_epi = function(y,econ) {
-  H_h = y[1]
-  
-  cons_link = econ$get_cons(H_h,econ)
-  work_link = (cons_link + econ$G)/econ$productivity # this is Employment
-  list(cons_link=cons_link, work_link=work_link)
-  
 }
 
 # function to get consumption from ode matrix output

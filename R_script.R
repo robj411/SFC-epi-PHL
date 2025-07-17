@@ -76,7 +76,7 @@ p2 <- ldata_dis_p2$p2
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model3
+econ = model2
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
@@ -90,7 +90,7 @@ eplot = epi_to_econ(epivars,model1,ref_val=100000)
     geom_vline(xintercept=100,colour='grey',linewidth=1.5) +
     geom_hline(yintercept=.5,colour='grey',linewidth=1.5) + 
     geom_line(aes(x=epivars/1e3,y=eplot$alpha1/model1$alpha1),linewidth=2,colour='midnightblue'))
-ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
+# ggsave(plotresponse,filename='figures/response.png',width=5,height=5)
 
 ## simulate ###########################################################
 
@@ -145,10 +145,11 @@ for(rv in 1:nrow(outtab))
   
   # plot outcomes
   Tout0 <- cntr[,1]
-  Hout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, H_index[1]]
-  Dout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, D_index[1]]
-  Sout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, S_index[1]]
-  Rout0 <-  array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))[,, R_index[1]]
+  epi_vars_mat <- array(cntr[,-c(1:(econ$nEconODEs+1))],dim=c(length(Tout0),nStrata,nStates))
+  Hout0 <-  epi_vars_mat[,, H_index[1]]
+  Dout0 <-  epi_vars_mat[,, D_index[1]]
+  Sout0 <-  epi_vars_mat[,, S_index[1]]
+  Rout0 <-  epi_vars_mat[,, R_index[1]]
   
   H = rowSums(Hout)
   Hw = Hout[,1]
@@ -171,6 +172,7 @@ for(rv in 1:nrow(outtab))
                                   econ$get_gdp_from_out(cntr,econ,Hc,ldata,0)),
                         Integrated=c(rep('Integrated model',length(Tout)),
                                      rep('Counterfactual',length(Tout0))))
+  
   colnames(plotdata)[3:5] <- c('Consumption, % of counterfactual','Wealth, % of counterfactual','GDP, % of counterfactual')
   plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
     geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +

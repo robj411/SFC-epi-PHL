@@ -111,7 +111,7 @@ model1$odes = function(t, y, econ, confirmed, dot_confirmed){
 }
 
 # function to get consumption from ode matrix output
-model1$get_cons_from_out = function(y, econ, epivar, data, integrate=1){
+model1$get_cons_from_timeseries = function(y, econ, epivar, data, integrate=1){
   H_h = y[,2]
   
   if (integrate==1){
@@ -122,9 +122,9 @@ model1$get_cons_from_out = function(y, econ, epivar, data, integrate=1){
 }
 
 # function to get gdp from ode matrix output
-model1$get_gdp_from_out = function(y,econ,epivar,data,integrate=1){
+model1$get_gdp_from_timeseries = function(y,econ,epivar,data,integrate=1){
   G = econ$G
-  cons = econ$get_cons_from_out(y,econ,epivar,data,integrate)
+  cons = econ$get_cons_from_timeseries(y,econ,epivar,data,integrate)
   cons + G
 }
 
@@ -265,7 +265,7 @@ model2$odes = function(t, y, econ, confirmed, dot_confirmed){
 }
 
 # function to get consumption from ode matrix output
-model2$get_cons_from_out = function(y, econ, epivar, data, integrate=1){
+model2$get_cons_from_timeseries = function(y, econ, epivar, data, integrate=1){
   H_h = y[,2]
   lambda = y[,3]
   if (integrate==1){

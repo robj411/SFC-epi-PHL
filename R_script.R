@@ -65,7 +65,7 @@ ldata <- ldata_dis$data
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model1
+econ = model2
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)

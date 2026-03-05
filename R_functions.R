@@ -583,8 +583,8 @@ get_results_df = function(mat, epivars, econ, integrated=1){
   # individual epi states
   Cout <-  epi_vars[[epivars]]
   
-  cons_scen = econ$get_cons_from_out(mat,econ,Cout,ldata, integrated)
-  gdp_scen = econ$get_gdp_from_out(mat,econ,Cout,ldata, integrated)
+  cons_scen = econ$get_cons_from_timeseries(mat,econ,Cout,ldata, integrated)
+  gdp_scen = econ$get_gdp_from_timeseries(mat,econ,Cout,ldata, integrated)
   
   df = data.frame(Day = Tout,
              Consumption = cons_scen,

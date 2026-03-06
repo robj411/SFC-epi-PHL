@@ -126,7 +126,7 @@ test_model$alpha1 = model1$alpha1*(1+1/365)
 # plot(x[,2])
 
 
-## Model 2, based on SIM (Godley and Lavoie, ch 3) ####################################
+## Model 2 (Model 1 plus time-varying productivity) ####################################
 
 model2 <- model1
 model2$model_name = 'Model 2'

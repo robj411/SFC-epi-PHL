@@ -8,8 +8,7 @@ library(viridis)
 library(latex2exp)
 
 # set up basics
-country <- 'Philippines'
-iso3 = 'PHL'
+
 set.seed(0)
 setwd(getSrcDirectory(function(){})[1])
 
@@ -40,7 +39,7 @@ if(!file.exists(datafile)){
   
   ## country data #################################
   
-  ldata <- gather_country_data(data, country_name=country, iso3=iso3)
+  ldata <- gather_country_data(data)
   # combine country and disease parameters
   CI <- get_candidate_infectees(dis, ldata)
   dis$beta <- R0 / CI

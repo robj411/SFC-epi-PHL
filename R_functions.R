@@ -1,10 +1,12 @@
 
 # data: list of general model parameters
 
-data_start <- function() {
+data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   
   data <- list()
   
+  data$iso3 = iso3
+  data$country_name = country_name
   data$nSectors <- 1
   data$tvec <- c(0, 300)
   
@@ -27,9 +29,11 @@ data_start <- function() {
 #
 # data: list of country-specific and general model parameters
 
-gather_country_data <- function(data, country_name='Philippines',iso3='PHL') {
+gather_country_data <- function(data) {
   
   ref_year = 2023
+  iso3 = data$iso3
+  country_name = data$country_name
   
   # population
   # population by age
@@ -85,8 +89,8 @@ gather_country_data <- function(data, country_name='Philippines',iso3='PHL') {
   
   # econ data
   # using wb data
-  gdpdata <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = 2018, end_date = 2024)
-  tdata <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = 2018, end_date = 2024)
+  gdpdata <- wb_data("NY.GDP.MKTP.CN",country = country_name, start_date = 2018, end_date = 2024)
+  tdata <- wb_data("GC.TAX.TOTL.CN",country = country_name, start_date = 2018, end_date = 2024)
   data$tax = c(subset(tdata,date==ref_year)$GC.TAX.TOTL.CN/1e12)
   data$gdp = c(subset(gdpdata,date==ref_year)$NY.GDP.MKTP.CN/1e12)
   
@@ -192,7 +196,7 @@ get_basic_contacts <- function(data) {
   
   # workforce participation rate
   # LFPR 15–64 (total), Philippines
-  lfpr_1564 = WDI(country="PHL", indicator="SL.TLF.ACTI.ZS", start=2010, end=2026)
+  lfpr_1564 = WDI(country=data$iso3, indicator="SL.TLF.ACTI.ZS", start=2010, end=2026)
   # latest observation
   latest = lfpr_1564[order(lfpr_1564$year, decreasing=TRUE), ][1, ]
   p = latest$SL.TLF.ACTI.ZS/100

@@ -1,17 +1,15 @@
 
-# load in basic data and make general definitions
-#
-# data: struct of general model parameters
+# data: list of general model parameters
 
 data_start <- function() {
   
   data <- list()
   
-  data$adInd <- 2
   data$nSectors <- 1
   data$tvec <- c(0, 300)
   
   data$ageindex <- list(1:3, 4:13, 14:21)
+  data$adInd <- 2
   
   compindex <- list()
   
@@ -25,18 +23,20 @@ data_start <- function() {
   return(data)
 }
 
-# simulate a random country by drawing from distributions and data
+# curate country data
 #
-# data: struct of general model parameters
+# data: list of country-specific and general model parameters
 
-p2RandCountry <- function(data, country_name='Philippines') {
+gather_country_data <- function(data, country_name='Philippines',iso3='PHL') {
+  
+  ref_year = 2023
   
   # population
   # population by age
   data(popAge5dt)   # population by 5-year age group (long format)
-  phldata = subset(popAge5dt, name == country_name)
-  maxyear = max(phldata$year)
-  pop_rec = subset(phldata, year == maxyear, select = c(age, pop))
+  countrydata = subset(popAge5dt, name == country_name)
+  maxyear = max(countrydata$year)
+  pop_rec = subset(countrydata, year == maxyear, select = c(age, pop))
   Npop = pop_rec$pop*1000
   data$Npop <- Npop
   ageindex = data$ageindex
@@ -45,7 +45,7 @@ p2RandCountry <- function(data, country_name='Philippines') {
   
   # employment rate
   dat <- get_ilostat(id = 'EAP_DWAP_SEX_AGE_RT_A', segment = 'indicator') 
-  fiveyr <- subset(dat,ref_area=='PHL'&sex=='SEX_T'&time==2022&grepl('5YR',classif1))
+  fiveyr <- subset(dat,ref_area==iso3 & sex=='SEX_T' & time==ref_year & grepl('5YR',classif1))
   fiveyr$pop <- c(sum(Npop[4:21]),Npop[4:13],sum(Npop[14:21]))
   
   # this was to add people aged over 65
@@ -80,8 +80,15 @@ p2RandCountry <- function(data, country_name='Philippines') {
   
   # generate basic contact components
   data$contacts <- get_basic_contacts(data)
-  basic_contact_matrix <- p2MakeDs(data, data$NNs)
+  basic_contact_matrix <- get_scaled_contacts(data, data$NNs)
   data$contacts$basic_contact_matrix <- basic_contact_matrix
+  
+  # econ data
+  # using wb data
+  gdpdata <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = 2018, end_date = 2024)
+  tdata <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = 2018, end_date = 2024)
+  data$tax = c(subset(tdata,date==ref_year)$GC.TAX.TOTL.CN/1e12)
+  data$gdp = c(subset(gdpdata,date==ref_year)$NY.GDP.MKTP.CN/1e12)
   
   return(data)
 }
@@ -144,9 +151,9 @@ four_to_three = function(cm){
 # take population contact matrix and decompose into items that will be
 # impacted differently by configurations
 #
-# data: struct of general model parameters
+# data: list of general and country-specific model parameters
 #
-# contacts: struct of contact parameters
+# contacts: list of contact parameters
 
 get_basic_contacts <- function(data) {
   
@@ -245,14 +252,13 @@ get_basic_contacts <- function(data) {
   Mtot = Mww + Mcw + Mcom + Mcc
   ## save
   
-  # contacts$sectorcontactfracs <- NULL
+  contacts <- list()
   contacts$Mww <- Mww
   contacts$Mcw <- Mcw
   contacts$Mcc <- Mcc
   contacts$Mcom <- Mcom
   
   data$contacts = contacts
-  # contact_matrix = p2MakeDs(data, data$NNs)
   # CM_4_orig - collapse_cm(contact_matrix, NN)
   
   return(contacts)
@@ -261,15 +267,14 @@ get_basic_contacts <- function(data) {
 
 
 
-# construct contact matrices from components for configurations
+# construct contact matrix from component matrices
 #
-# data: struct of general model parameters
+# data: list of general model parameters
 # NN: population by stratum
-# x: economic configuration
-# hw: proportion working from home by stratum
-#
+# relative_consumption: consumption relative to counterfactual / normal times
+# relative_work: number of workers relative to counterfactual / normal times
 
-p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_working=0) {
+get_scaled_contacts <- function(data, NN, relative_consumption=1, relative_work=1) {
   
   ## variables to use
   contacts <- data$contacts
@@ -288,14 +293,12 @@ p2MakeDs <- function(data, NN, relative_consumption=1, relative_work=1, home_wor
 }
 
 
-## get effective reproduction number
+## get candidate infectees (step before R0)
 #
-# dis: struct of pathogen parameters
-# S: susceptible unvaccinated
-# N: population by stratum
-# contact_matrix: contact matrix
+# dis: list of pathogen parameters
+# data: list of general and country-specific model parameters
 #
-# R: effective reproduction number
+# CI: candidate infectees (R0 (reproduction number) / beta)
 
 get_candidate_infectees <- function(dis, data) {
   
@@ -339,7 +342,7 @@ get_candidate_infectees <- function(dis, data) {
 }
 
 
-p2SimVax <- function(data, dis, econ) {
+simulate_epi_econ_model <- function(data, dis, econ) {
   
   ## PARAMETERS
   nStrata <- length(data$NNs)
@@ -495,8 +498,8 @@ ODEs <- function(data, t, dis, y, econ) {
   ## FOI (force of infection)
   
   # we recompute the contact matrix at each time step based on the econ variables
-  contact_matrix = p2MakeDs(data, NN0, relative_consumption = relative_consumption, 
-                            relative_work = relative_work, home_working = 0)
+  contact_matrix = get_scaled_contacts(data, NN0, relative_consumption = relative_consumption, 
+                            relative_work = relative_work)
   I <- (1 - prob_isolated) * C + Id + Iu
   foi <- dis$beta * contact_matrix %*% (I/NN0)
   

@@ -1,16 +1,15 @@
-library(readxl)
 library(pracma)
 library(MASS)
 library(abind)
 library(Matrix)
 library(haven)
 library(ggplot2)
-library(wbstats)
 library(viridis)
 library(latex2exp)
 
 # set up basics
 country <- 'Philippines'
+iso3 = 'PHL'
 set.seed(0)
 setwd(getSrcDirectory(function(){})[1])
 
@@ -23,19 +22,17 @@ if(!file.exists(datafile)){
   library(Rilostat)
   library("conmat")
   library("wpp2024")
+  library(wbstats)
   
   ## starting variables ###############################
   data <- data_start()
   
   ## disease variables ############################
   
-  # sevenpathogens <- read.csv(paste0(datapath,'sevenpathogens.csv'))
-  
   dis <- list()
-  R0 <- 2.75 # sevenpathogens$R0[5]
-  # dis$TRtoS <- sevenpathogens$Ti[5] * 10e5
-  dis$TEtoI <- 4.6 # sevenpathogens$Tlat[5]
-  dis$TItoR <- 4 # sevenpathogens$Tsr[5]
+  R0 <- 2.75 
+  dis$TEtoI <- 4.6 
+  dis$TItoR <- 4 
   dis$TItoC <- 2
   dis$TCtoR <- dis$TItoR - dis$TItoC
   dis$prob_detected <- 0.5
@@ -43,14 +40,14 @@ if(!file.exists(datafile)){
   
   ## country data #################################
   
-  ldata1 <- p2RandCountry(data, country_name=country)
+  ldata <- gather_country_data(data, country_name=country, iso3=iso3)
   # combine country and disease parameters
-  CI <- get_candidate_infectees(dis, ldata1)
+  CI <- get_candidate_infectees(dis, ldata)
   dis$beta <- R0 / CI
   
   ## complete p2, dis and data structs #################################
   
-  ldata_dis <- list(data=ldata1, dis=dis)
+  ldata_dis <- list(data=ldata, dis=dis)
   # save:
   saveRDS(ldata_dis,datafile)
   
@@ -93,7 +90,7 @@ for(rv in 1:nrow(outtab))
   ldata$q1 = outtab[rv,2]
   ldata$q2 = outtab[rv,3]
   ## run model
-  runlist <- p2SimVax(data = ldata, dis = dis2, econ = econ)
+  runlist <- simulate_epi_econ_model(data = ldata, dis = dis2, econ = econ)
   
   plotout = plot_trajectories(runlist, ldata)
   

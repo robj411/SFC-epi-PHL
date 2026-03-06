@@ -5,19 +5,10 @@ model1 <- list()
 model1$model_name = 'Model 1'
 
 # initial conditions
-# using wb data
-gdpdata <- wb_data("NY.GDP.MKTP.CN",country = country, start_date = 2018, end_date = 2024)
-# gdata <- wb_data("NE.CON.GOVT.CN",country = country, start_date = 2018, end_date = 2024)
-tdata <- wb_data("GC.TAX.TOTL.CN",country = country, start_date = 2018, end_date = 2024)
-
-ref_year = 2023
-tax = c(subset(tdata,date==ref_year)$GC.TAX.TOTL.CN/1e12)
-# gment = c(subset(gdata,date==ref_year)$NE.CON.GOVT.CN/1e12)
-gdp = c(subset(gdpdata,date==ref_year)$NY.GDP.MKTP.CN/1e12)
 
 # get initial conditions using equations
-y0 = gdp/365 # from annual to daily
-tax0 = tax/365 # from annual to daily
+y0 = ldata$gdp/365 # from annual to daily
+tax0 = ldata$tax/365 # from annual to daily
 theta = tax0 / y0 # from identity
 yd0 = (1-theta)*y0 # from identity
 cons0 = yd0 # from identity

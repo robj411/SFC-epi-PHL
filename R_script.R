@@ -6,6 +6,7 @@ library(haven)
 library(ggplot2)
 library(viridis)
 library(latex2exp)
+library(data.table)
 
 # set up basics
 
@@ -61,7 +62,7 @@ ldata <- ldata_dis$data
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model2
+econ = model1
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
@@ -94,16 +95,13 @@ for(rv in 1:nrow(outtab))
   plotout = plot_trajectories(runlist, ldata)
   
   if(econ$model_name == 'Model 1'){
-    label = TeX(paste0(econ$model_name,"; $q_1$ = ", ldata$q2))
+    label = TeX(paste0(econ$model_name,"; $q_2$ = ", ldata$q2))
   }else{
-    label = TeX(paste0(econ$model_name,"; $\\gamma_1 = ", econ$lambda_p1,"$; $q_1$ = ", ldata$q2))
+    label = TeX(paste0(econ$model_name,"; $\\gamma_1 = ", econ$lambda_p1,"$; $q_2$ = ", ldata$q2))
   }
   plotout = plotout + labs(title= label)
   ggsave(plotout,filename=paste0('figures/',econ$model_name,'_',econ$lambda_p1,'-',ldata$q2,'.png'),width=12,height=3.5)
   
-  
-  # gdpscen = trapz(Tout,econ$get_gdp_from_out(odevar,econ,C,ldata,1))
-  # trapz(Tout0,cntr[,which(econ$econvarnames=='cons')+1] + econ$g)
 }
 
 

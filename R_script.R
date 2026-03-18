@@ -20,8 +20,8 @@ source('R_functions.R');
 datafile <- 'data_file.Rds'
 if(!file.exists(datafile)){
   library(Rilostat)
-  library("conmat")
-  library("wpp2024")
+  library(conmat)
+  library(wpp2024)
   library(wbstats)
   
   ## starting variables ###############################
@@ -56,13 +56,13 @@ if(!file.exists(datafile)){
 }
 
 ## load stored objects
-dis2 <- ldata_dis$dis
+dis <- ldata_dis$dis
 ldata <- ldata_dis$data
 
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model1
+econ = model2
 
 # plot response function to epidemic for reference
 epivars = seq(0,3e5,by=1000)
@@ -90,7 +90,7 @@ for(rv in 1:nrow(outtab))
   ldata$q1 = outtab[rv,2]
   ldata$q2 = outtab[rv,3]
   ## run model
-  runlist <- simulate_epi_econ_model(data = ldata, dis = dis2, econ = econ)
+  runlist <- simulate_epi_econ_model(data = ldata, dis = dis, econ = econ)
   
   plotout = plot_trajectories(runlist, ldata)
   

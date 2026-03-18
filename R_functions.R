@@ -590,7 +590,7 @@ get_results_df = function(runlist, epivars, econ){
     integrate = j-1
     # time
     Tout <- mat[,1]
-    # epi outcomes
+    # epi outcomes to plot
     epi_vars = get_epi_vars(mat=mat, ldata, vars=epivars, nRemove=econ$nEconODEs+1)
     
     # individual epi states

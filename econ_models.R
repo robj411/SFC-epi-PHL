@@ -62,8 +62,8 @@ model1$get_cons = function(H_h, econ){
   cons_d = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
   
   # choose min
-  cons = cons_s
-  cons[cons_d <= cons + 1e-10] <- cons_d[cons_d <= cons + 1e-10]
+  cons = cons_d
+  cons[cons_s <= cons + 1e-10] <- cons_d[cons_s <= cons + 1e-10]
   cons
 }
 
@@ -193,7 +193,6 @@ model2$get_cons_deriv = function(H_h, dot_H_h, confirmed, dot_confirmed, econ){
   if(econ$integrate==1)
     dot_link_function = epi_to_econ_deriv(confirmed, dot_confirmed)
   
-  # compute cons_d (consumption assuming no reduction in labour supply)
   f_term = alpha0 + alpha1t*G*(1-theta) + alpha2t*H_h
   f_prime = dot_link_function * (alpha1*G*(1-theta) + alpha2*H_h) + alpha2t * dot_H_h
   g_term = 1 - alpha1t*(1 - theta)

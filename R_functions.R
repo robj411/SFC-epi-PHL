@@ -8,7 +8,7 @@ data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   data$iso3 = iso3
   data$country_name = country_name
   data$nSectors <- 1
-  data$tvec <- c(0, 300)
+  data$tvec <- c(0, 365)
   
   data$ageindex <- list(1:3, 4:13, 14:21)
   data$adInd <- 2
@@ -580,28 +580,63 @@ get_epi_vars = function(mat, ldata, vars, nRemove = 0){
 }
 
 
-get_results_df = function(mat, epivars, econ, integrated=1){
+get_results_df = function(runlist, epivars, econ){
+  popsize = sum(ldata$Npop3)
+  plotnames = c('Counterfactual','Integrated model')
+  listnames = c('counterfactual','integrated')
+  scen_df <- list()
+  for(j in 1:2){
+    mat = runlist[[listnames[j]]]
+    integrate = j-1
+    # time
+    Tout <- mat[,1]
+    # epi outcomes
+    epi_vars = get_epi_vars(mat=mat, ldata, vars=epivars, nRemove=econ$nEconODEs+1)
+    
+    # individual epi states
+    Cout <-  epi_vars[[epivars]]
+    
+    cons_scen = econ$get_cons_from_timeseries(y=mat,econ,epivar=Cout,data=ldata, integrate)
+    gdp_scen = econ$get_gdp_from_timeseries(mat,econ,Cout,ldata, integrate)
+    
+    econ_df = data.frame(Day = Tout,
+               Consumption = cons_scen,
+               GDP = gdp_scen,
+               Integrated = plotnames[j])
+    for(i in 1:length(econ$econvarlabels))
+      econ_df[[econ$econvarlabels[i]]] = mat[,i+1]
+    
+    if('Productivity'%in%names(econ_df)){
+      econ_df$Employment = with(econ_df, GDP/Productivity)
+    }else{
+      econ_df$Employment = with(econ_df, GDP/econ$lambda)
+    }      
+    
+    scen_df[[j]] = cbind(econ_df, do.call(cbind, epi_vars))
+    
+    all_infected = Reduce('+',get_epi_vars(mat=mat, ldata, vars=c('C','Id','Iu'), nRemove=econ$nEconODEs+1))
+    max_infected = max(all_infected)/1e6 # in millions
+    recovered = get_epi_vars(mat=mat, ldata, vars='R', nRemove=econ$nEconODEs+1)
+    cumulative_incidence_pc = max(recovered$R)/popsize*100
+    if(integrate==1)
+      cat(paste0(ldata$q2,' & ',
+                 econ$lambda_p1,' & ',
+                 round(max_infected,1),' & ',
+                 round(cumulative_incidence_pc),' & '))
+  }
+  # join, divide, and return
+  alleconvars = c(econ$econvarlabels, 'Consumption', 'GDP', 'Employment')
+  df = setDT(do.call(rbind,scen_df))
+  # write as percent of counterfactual
+  df[,(alleconvars) := lapply(.SD, function(x) x/x[1]*100),by=.(Day),.SDcols=alleconvars]
   
-  # time
-  Tout <- mat[,1]
-  # epi outcomes
-  epi_vars = get_epi_vars(mat=mat, ldata, vars=epivars, nRemove=econ$nEconODEs+1)
+  ## get GDP loss
+  cumulativegdp = df[,trapz(Day,GDP),by=Integrated]
+  # GDP loss as percent of total (but could change to % of annual)
+  gdplosspc = with(cumulativegdp, (V1[1]-V1[2])/V1[1])*100
+  cat(paste0(round(gdplosspc,1),' \\\\\n '))
   
-  # individual epi states
-  Cout <-  epi_vars[[epivars]]
-  
-  cons_scen = econ$get_cons_from_timeseries(mat,econ,Cout,ldata, integrated)
-  gdp_scen = econ$get_gdp_from_timeseries(mat,econ,Cout,ldata, integrated)
-  
-  df = data.frame(Day = Tout,
-             Consumption = cons_scen,
-             GDP = gdp_scen,
-             Integrated = c('Counterfactual','Integrated model')[integrated+1])
-  for(i in 1:length(econ$econvarlabels))
-    df[[econ$econvarlabels[i]]] = mat[,i+1]
-  
-  cbind(df, do.call(cbind, epi_vars))
-  
+  df
 }
 
 
@@ -609,10 +644,7 @@ plot_trajectories <- function(runlist,ldata){
   
   ## OUTPUT VARIABLES
   
-  scen_df = get_results_df(runlist$integrated, epivars='C', econ, integrated=1)
-  counter_df = get_results_df(runlist$counterfactual, epivars='C', econ, integrated=0)
-  
-  plotdata = rbind(scen_df, counter_df)
+  plotdata = get_results_df(runlist, epivars='C', econ)
   
   plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
     geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +

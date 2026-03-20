@@ -1,4 +1,8 @@
 
+
+# 117.800/5215.728*100 # march 7 -> april 5 2021
+
+
 # data: list of general model parameters
 
 data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
@@ -25,7 +29,7 @@ data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   ## disease variables ############################
   
   epidemic <- list()
-  R0 <- 2.75 
+  epidemic$R0 <- 2.75 
   epidemic$TEtoI <- 4.6 
   epidemic$TItoR <- 4 
   epidemic$TItoC <- 2
@@ -88,9 +92,12 @@ gather_country_data <- function(data) {
   # workforce participation rate
   # LFPR 15–64 (total), Philippines
   lfpr_1564 = WDI(country=data$iso3, indicator="SL.TLF.ACTI.ZS", start=2010, end=2026)
-  # latest observation
   latest = lfpr_1564[order(lfpr_1564$year, decreasing=TRUE), ][1, ]
-  data$employmentrate = latest$SL.TLF.ACTI.ZS/100
+  data$lfpr = latest$SL.TLF.ACTI.ZS/100
+  
+  unemployment = WDI(country=data$iso3, indicator="SL.UEM.TOTL.ZS", start=2010, end=2026)
+  latest = unemployment[order(unemployment$year, decreasing=TRUE), ][1, ]
+  data$employmentrate = (100 - latest$SL.UEM.TOTL.ZS)
   
   # generate basic contact components
   data <- get_basic_contacts(data)
@@ -202,7 +209,7 @@ get_basic_contacts <- function(data) {
   
   # combine country and disease parameters
   CI <- get_candidate_infectees(data)
-  data$epidemic$beta <- R0 / CI
+  data$epidemic$beta <- data$epidemic$R0 / CI
   
   data
 }
@@ -214,7 +221,7 @@ decompose_contacts = function(data, consumption_contact=1){
   
   worker_index = data$adInd
   popsizes = data$Npop3
-  workers_by_sector <- data$employmentrate*popsizes[worker_index] # sum(allsectors)
+  workers_by_sector <- data$lfpr*popsizes[worker_index] # sum(allsectors)
   # put into order: workers, then children, non-workers, and retired
   NNs <- as.numeric(c(workers_by_sector,
                       popsizes[1:(worker_index-1)],
@@ -225,7 +232,7 @@ decompose_contacts = function(data, consumption_contact=1){
   data$nStrata <- length(data$NNs)
   
   reduced_cms = data$reduced_cms
-  p = data$employmentrate
+  p = data$lfpr
   q = 1-p
   
   worker_age_contacts = sum(reduced_cms$all[worker_index,])
@@ -410,8 +417,7 @@ simulate_epi_econ_model <- function(data,  econ) {
   
   fun <- function(t, y, p) ODEs(data, t, y, econ)
   tmpout <- deSolve::ode(times = seq(t0,tend,1), y = y0, func = fun,
-                         parms=list(data=rundata, nStrata=nStrata, econ=econ),
-                         method='impAdams_d')
+                         parms=list(data=rundata, nStrata=nStrata, econ=econ))
   # plot(rowSums(tmpout[,12:23]))
   # store counterfactual values
   econ$counter_time <- tmpout[,1]
@@ -423,8 +429,7 @@ simulate_epi_econ_model <- function(data,  econ) {
   
   # solve ODEs
   out <- deSolve::ode(times = seq(t0, tend, by=1), y = y0, func = fun,
-                      parms=list(data=rundata, nStrata=nStrata, econ=econ),
-                      method='impAdams_d')
+                      parms=list(data=rundata, nStrata=nStrata, econ=econ))
   
   ## OUTPUTS:  
   returnobject <- list(
@@ -578,7 +583,7 @@ ODEs <- function(data, t, y, econ) {
   
   ## BLOCK 4: ECON MODEL ####################
   
-  econ_derivs = econ$odes(t, y, econ, C, Cdot, prob_isolated, data)
+  econ_derivs = econ$odes(t, y, econ, C, Cdot, prob_isolated)
   
   ## return derivatives ############################
   
@@ -646,9 +651,9 @@ get_results_df = function(runlist, epivars, econ, ldata){
       econ_df[[econ$econvarlabels[i]]] = mat[,i+1]
     
     if('Productivity'%in%names(econ_df)){
-      econ_df$Employment = with(econ_df, GDP/Productivity)
+      econ_df$Employment = with(econ_df, GDP/Productivity)/econ$lf * 100
     }else{
-      econ_df$Employment = with(econ_df, GDP/econ$lambda)
+      econ_df$Employment = with(econ_df, GDP/econ$lambda)/econ$lf * 100
     }      
     
     scen_df[[j]] = cbind(econ_df, do.call(cbind, epi_vars))
@@ -666,7 +671,7 @@ get_results_df = function(runlist, epivars, econ, ldata){
                  round(cumulative_incidence_pc),' & '))
   }
   # join, divide, and return
-  alleconvars = c(econ$econvarlabels, 'Consumption', 'GDP', 'Employment')
+  alleconvars = c(econ$econvarlabels, 'Consumption', 'GDP')
   df = setDT(do.call(rbind,scen_df))
   # write as percent of counterfactual
   df[,(alleconvars) := lapply(.SD, function(x) x/x[1]*100),by=.(Day),.SDcols=alleconvars]
@@ -676,6 +681,8 @@ get_results_df = function(runlist, epivars, econ, ldata){
   # GDP loss as percent of total (but could change to % of annual)
   gdplosspc = with(cumulativegdp, (V1[1]-V1[2])/V1[1])*100
   cat(paste0(round(gdplosspc,1),' \\\\\n '))
+  
+  colnames(df)[colnames(df)=='C'] <- 'Confirmed'
   
   df
 }
@@ -691,7 +698,11 @@ plot_trajectories <- function(runlist, econ, ldata){
     geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +
     facet_wrap(~variable,scales = 'free_y',nrow=1) +
     theme_bw(base_size=15) +
-    theme(legend.position = 'top') + 
+    theme(legend.position = 'top', 
+          strip.text.y = element_blank(), 
+          strip.background = element_blank(),
+          # legend.margin=margin(0,0,0,0),
+          legend.box.margin=margin(-0,-10,-20,-10)) + 
     labs(y='',colour='')
   
   print(plotout)

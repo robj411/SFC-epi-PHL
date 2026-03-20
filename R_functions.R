@@ -22,6 +22,19 @@ data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   compindex$R_index <- c(6)
   data$compindex <- compindex
   
+  ## disease variables ############################
+  
+  epidemic <- list()
+  R0 <- 2.75 
+  epidemic$TEtoI <- 4.6 
+  epidemic$TItoR <- 4 
+  epidemic$TItoC <- 2
+  epidemic$TCtoR <- epidemic$TItoR - epidemic$TItoC
+  epidemic$prob_detected <- 0.5
+  epidemic$prob_isolated <- 1
+  
+  data$epidemic = epidemic
+  
   return(data)
 }
 
@@ -34,6 +47,7 @@ gather_country_data <- function(data) {
   ref_year = 2023
   iso3 = data$iso3
   country_name = data$country_name
+  adind = data$adInd
   
   # population
   # population by age
@@ -48,9 +62,9 @@ gather_country_data <- function(data) {
   data$Npop3 <- Npop3
   
   # employment rate
-  dat <- get_ilostat(id = 'EAP_DWAP_SEX_AGE_RT_A', segment = 'indicator') 
-  fiveyr <- subset(dat,ref_area==iso3 & sex=='SEX_T' & time==ref_year & grepl('5YR',classif1))
-  fiveyr$pop <- c(sum(Npop[4:21]),Npop[4:13],sum(Npop[14:21]))
+  # dat <- get_ilostat(id = 'EAP_DWAP_SEX_AGE_RT_A', segment = 'indicator') 
+  # fiveyr <- subset(dat,ref_area==iso3 & sex=='SEX_T' & time==ref_year & grepl('5YR',classif1))
+  # fiveyr$pop <- c(sum(Npop[4:21]),Npop[4:13],sum(Npop[14:21]))
   
   # this was to add people aged over 65
   # shrinkage = with(subset(fiveyr,classif1%in%c('AGE_5YRBANDS_Y60-64','AGE_5YRBANDS_Y55-59','AGE_5YRBANDS_Y50-54')),obs_value[2:3]/obs_value[1:2])
@@ -66,26 +80,20 @@ gather_country_data <- function(data) {
   # retiredage = workers/Npop[14:21]*100
   # percentages <- c(subset(fiveyr,!classif1%in%c('AGE_5YRBANDS_TOTAL','AGE_5YRBANDS_YGE65'))$obs_value, retiredage[1])
   
-  adind = data$adInd
-  percentages <- subset(fiveyr,!classif1%in%c('AGE_5YRBANDS_TOTAL','AGE_5YRBANDS_YGE65'))$obs_value
-  populations <- Npop[ageindex[[adind]]]
-  lfpr <- sum(percentages*populations/100)/sum(populations)
-  data$employmentrate = lfpr
+  # percentages <- subset(fiveyr,!classif1%in%c('AGE_5YRBANDS_TOTAL','AGE_5YRBANDS_YGE65'))$obs_value
+  # populations <- Npop[ageindex[[adind]]]
+  # lfpr <- sum(percentages*populations/100)/sum(populations)
+  # data$employmentrate = lfpr
   
-  workers_by_sector <- data$employmentrate*Npop3[adind] # sum(allsectors)
-  # put into order: workers, then children, non-workers, and retired
-  NNs <- as.numeric(c(workers_by_sector,
-                      Npop3[1:(adind-1)],
-                      Npop3[adind]-sum(workers_by_sector),
-                      Npop3[(adind+1):length(Npop3)]))
-  
-  data$NNs <- NNs
-  data$nStrata <- length(data$NNs)
+  # workforce participation rate
+  # LFPR 15–64 (total), Philippines
+  lfpr_1564 = WDI(country=data$iso3, indicator="SL.TLF.ACTI.ZS", start=2010, end=2026)
+  # latest observation
+  latest = lfpr_1564[order(lfpr_1564$year, decreasing=TRUE), ][1, ]
+  data$employmentrate = latest$SL.TLF.ACTI.ZS/100
   
   # generate basic contact components
-  data$contacts <- get_basic_contacts(data)
-  basic_contact_matrix <- get_scaled_contacts(data, data$NNs)
-  data$contacts$basic_contact_matrix <- basic_contact_matrix
+  data <- get_basic_contacts(data)
   
   # econ data
   # using wb data
@@ -139,7 +147,7 @@ transpose_and_normalise_conmats = function(cms, age_counts16){
 
 
 
-four_to_three = function(cm){
+four_to_three = function(cm,p,q){
   threebyfour = matrix(0, nrow = 3, ncol = 4)
   threebyfour[1,] = cm[2,]
   threebyfour[2,] = p*cm[1,] + q*cm[3,]
@@ -162,7 +170,6 @@ four_to_three = function(cm){
 get_basic_contacts <- function(data) {
   
   Npop <- data$Npop
-  NN <- data$NNs
   ageindex = data$ageindex
   
   polymod_survey_data = get_polymod_population()
@@ -185,24 +192,46 @@ get_basic_contacts <- function(data) {
   normalised_cms = transpose_and_normalise_conmats(exp_contact, age_counts16)
   
   CM_16 <- unname(normalised_cms$all)
-  s16 <- nrow(CM_16)
   
-  reduced_cms = lapply(normalised_cms, function(x)  collapse_cm(contact_matrix = x, age_groups16, age_counts16))
+  data$reduced_cms = lapply(normalised_cms, function(x)  collapse_cm(contact_matrix = x, age_groups16, age_counts16))
+  
+  # popsizes = sapply(age_groups16, function(x) sum(age_counts16[x]))
+  
+  data = decompose_contacts(data, consumption_contact=1)
+  data$contacts$basic_contact_matrix <- get_scaled_contacts(data)
+  
+  # combine country and disease parameters
+  CI <- get_candidate_infectees(data)
+  data$epidemic$beta <- R0 / CI
+  
+  data
+}
+
+
+##!! changing work-related contacts changes the counterfactual, because it changes the basic contact matrix
+# changing consumption-related contacts should not change the counterfactual because the basic contact matrix is unchanged
+decompose_contacts = function(data, consumption_contact=1){
   
   worker_index = data$adInd
+  popsizes = data$Npop3
+  workers_by_sector <- data$employmentrate*popsizes[worker_index] # sum(allsectors)
+  # put into order: workers, then children, non-workers, and retired
+  NNs <- as.numeric(c(workers_by_sector,
+                      popsizes[1:(worker_index-1)],
+                      popsizes[worker_index]-sum(workers_by_sector),
+                      popsizes[(worker_index+1):length(popsizes)]))
+  
+  data$NNs <- NNs
+  data$nStrata <- length(data$NNs)
+  
+  reduced_cms = data$reduced_cms
+  p = data$employmentrate
+  q = 1-p
+  
   worker_age_contacts = sum(reduced_cms$all[worker_index,])
   worker_age_self_contacts = reduced_cms$all[worker_index,worker_index]
   frac_work_contacts = sum(reduced_cms$work[worker_index,]) / worker_age_contacts
   
-  # workforce participation rate
-  # LFPR 15–64 (total), Philippines
-  lfpr_1564 = WDI(country=data$iso3, indicator="SL.TLF.ACTI.ZS", start=2010, end=2026)
-  # latest observation
-  latest = lfpr_1564[order(lfpr_1564$year, decreasing=TRUE), ][1, ]
-  p = latest$SL.TLF.ACTI.ZS/100
-  q = 1-p
-  
-  popsizes = sapply(age_groups16, function(x) sum(age_counts16[x]))
   popfracs = popsizes/sum(popsizes)
   
   # population size vector with working-age people split between two groups
@@ -243,30 +272,28 @@ get_basic_contacts <- function(data) {
   Mcom[2:4,1] = c(N_4[1] / N_4[2] * CC2, p*CC3, N_4[1] / N_4[4] * CC4)
   Mcom[2:4,3] = c(N_4[3] / N_4[2] * CC2, q*CC3, N_4[3] / N_4[4] * CC4)
   
-  Mcc[2:4, 2:4] = reduced_cms$other
+  ##!! this is possibly not the right way to separate these components
+  # what fraction of community contacts are associated with consumption?
+  Mcc[2:4, 2:4] = consumption_contact * reduced_cms$other
   Mcc[1,] = Mcc[3,] 
   Mcc[3,] = Mcc[3,] 
   Mcc[,1] = Mcc[,3] * p 
   Mcc[,3] = Mcc[,3] * q
-  # four_to_three(Mcc)
+  # four_to_three(Mcc,p,q)
   
   # subtract consumer--consumer contacts 
   Mcom = Mcom - Mcc
   
-  Mtot = Mww + Mcw + Mcom + Mcc
   ## save
-  
   contacts <- list()
   contacts$Mww <- Mww
   contacts$Mcw <- Mcw
   contacts$Mcc <- Mcc
   contacts$Mcom <- Mcom
-  
   data$contacts = contacts
-  # CM_4_orig - collapse_cm(contact_matrix, NN)
+  # print(four_to_three(get_scaled_contacts(data),p,q))
   
-  return(contacts)
-  
+  return(data)
 }
 
 
@@ -274,11 +301,10 @@ get_basic_contacts <- function(data) {
 # construct contact matrix from component matrices
 #
 # data: list of general model parameters
-# NN: population by stratum
 # relative_consumption: consumption relative to counterfactual / normal times
 # relative_work: number of workers relative to counterfactual / normal times
 
-get_scaled_contacts <- function(data, NN, relative_consumption=1, relative_work=1) {
+get_scaled_contacts <- function(data, relative_consumption=1, relative_work=1) {
   
   ## variables to use
   contacts <- data$contacts
@@ -299,26 +325,26 @@ get_scaled_contacts <- function(data, NN, relative_consumption=1, relative_work=
 
 ## get candidate infectees (step before R0)
 #
-# dis: list of pathogen parameters
 # data: list of general and country-specific model parameters
 #
 # CI: candidate infectees (R0 (reproduction number) / beta)
 
-get_candidate_infectees <- function(dis, data) {
+get_candidate_infectees <- function(data) {
   
+  epidemic = data$epidemic
   
   S <- N <- data$NNs
   contact_matrix = data$contacts$basic_contact_matrix
   nStrata = length(N)
   
   # Rates
-  prob_detected = dis$prob_detected
-  prob_isolated = dis$prob_isolated
-  sig1 <- prob_detected / dis$TEtoI
-  sig2 <- (1 - prob_detected) / dis$TEtoI
-  g1 <- 1 / dis$TItoR
-  g2 <- 1 / dis$TItoC
-  confirmed <- 1 / dis$TCtoR
+  prob_detected = epidemic$prob_detected
+  prob_isolated = epidemic$prob_isolated
+  sig1 <- prob_detected / epidemic$TEtoI
+  sig2 <- (1 - prob_detected) / epidemic$TEtoI
+  g1 <- 1 / epidemic$TItoR
+  g2 <- 1 / epidemic$TItoC
+  confirmed <- 1 / epidemic$TCtoR
   
   FOIin <- contact_matrix * t(pracma::repmat(S, nStrata, 1)) / pracma::repmat(N, nStrata, 1)
   
@@ -346,11 +372,11 @@ get_candidate_infectees <- function(dis, data) {
 }
 
 
-simulate_epi_econ_model <- function(data, dis, econ) {
+simulate_epi_econ_model <- function(data,  econ) {
   
   ## PARAMETERS
   nStrata <- length(data$NNs)
-  nSectors <- data$nSectors
+  # nSectors <- data$nSectors
   S0 <- data$NNs
   tend <- max(data$tvec)
   compindex <- data$compindex
@@ -364,7 +390,8 @@ simulate_epi_econ_model <- function(data, dis, econ) {
     q1 = data$q1,
     q2 = data$q2,
     compindex = data$compindex,
-    contacts = data$contacts
+    contacts = data$contacts,
+    epidemic = data$epidemic
   )
   
   # initial conditions
@@ -381,9 +408,9 @@ simulate_epi_econ_model <- function(data, dis, econ) {
   
   econ$integrate <- 0
   
-  fun <- function(t, y, p) ODEs(data, t, dis, y, econ)
+  fun <- function(t, y, p) ODEs(data, t, y, econ)
   tmpout <- deSolve::ode(times = seq(t0,tend,1), y = y0, func = fun,
-                         parms=list(data=rundata, nStrata=nStrata, dis=dis, econ=econ),
+                         parms=list(data=rundata, nStrata=nStrata, econ=econ),
                          method='impAdams_d')
   # plot(rowSums(tmpout[,12:23]))
   # store counterfactual values
@@ -396,7 +423,7 @@ simulate_epi_econ_model <- function(data, dis, econ) {
   
   # solve ODEs
   out <- deSolve::ode(times = seq(t0, tend, by=1), y = y0, func = fun,
-                      parms=list(data=rundata, nStrata=nStrata, dis=dis, econ=econ),
+                      parms=list(data=rundata, nStrata=nStrata, econ=econ),
                       method='impAdams_d')
   
   ## OUTPUTS:  
@@ -410,7 +437,10 @@ simulate_epi_econ_model <- function(data, dis, econ) {
 }
 
 
-epi_to_econ = function(epi_var,econ, q1 = 0.86, q2 = .0001){
+epi_to_econ = function(epi_var, lf_confirmed, econ, data){
+  
+  q1 = data$q1
+  q2 = data$q2
   
   # make sure we start at one
   # ref_scalar = 1/(1+exp(-(ref_val)/gradient))
@@ -420,18 +450,28 @@ epi_to_econ = function(epi_var,econ, q1 = 0.86, q2 = .0001){
   prop_to = q1 + (1-q1) / (1+q2*epi_var)
   
   econ$scalar = prop_to
+  
+  # labour force (lf) is the original lf minus those confirmed
+  prob_isolated = data$epidemic$prob_isolated
+  econ$lf = econ$lf - (prob_isolated * lf_confirmed / 1e6) # in millions
+  
   return(econ)
   
 }
 
-epi_to_econ_deriv = function(epivar, dot_epivar, q1 = 0.86, q2 = .0001){
+epi_to_econ_deriv = function(epivar, dot_epivar, data){
+  
+  q1 = data$q1
+  q2 = data$q2
+  
   deriv = (-(1-q1) * q2 * dot_epivar )/((1+q2*epivar )^2)
   deriv
 }
 
-ODEs <- function(data, t, dis, y, econ) {
+ODEs <- function(data, t, y, econ) {
   
   ## BLOCK 0: ACCESS VARIABLES ####################
+  epidemic = data$epidemic
   
   ## variables
   
@@ -460,15 +500,13 @@ ODEs <- function(data, t, dis, y, econ) {
   R <- epi_vars_mat[,R_index[1]]
   total_confirmed = sum(C)
   
-  prob_isolated = dis$prob_isolated
+  prob_isolated = epidemic$prob_isolated
   
   ## BLOCK 1: THE EPI->ECON LINK ####################
   ## response to pandemic / mandate
   
   if (integrate==1){
-    econ = epi_to_econ(total_confirmed,econ,q1=data$q1,q2=data$q2)
-    # labour force (lf) is the original lf minus those confirmed
-    econ$lf = econ$lf - (prob_isolated * C[1] / 1e6) # in millions
+    econ = epi_to_econ(total_confirmed, lf_confirmed=C[1], econ, data)
   }
 
   ## BLOCK 2: THE ECON->EPI LINK ####################
@@ -502,17 +540,17 @@ ODEs <- function(data, t, dis, y, econ) {
   ## FOI (force of infection)
   
   # we recompute the contact matrix at each time step based on the econ variables
-  contact_matrix = get_scaled_contacts(data, NN0, relative_consumption = relative_consumption, 
+  contact_matrix = get_scaled_contacts(data, relative_consumption = relative_consumption, 
                             relative_work = relative_work)
   I <- (1 - prob_isolated) * C + Id + Iu
-  foi <- dis$beta * contact_matrix %*% (I/NN0)
+  foi <- epidemic$beta * contact_matrix %*% (I/NN0)
   
   ## EQUATIONS
-  prob_detected = dis$prob_detected
-  TEtoI <- dis$TEtoI
-  TItoR <- dis$TItoR
-  TItoC <- dis$TItoC
-  TCtoR <- dis$TCtoR
+  prob_detected = epidemic$prob_detected
+  TEtoI <- epidemic$TEtoI
+  TItoR <- epidemic$TItoR
+  TItoC <- epidemic$TItoC
+  TCtoR <- epidemic$TCtoR
   
   new_infections = S * foi
   latent_det = E * prob_detected / TEtoI
@@ -540,7 +578,7 @@ ODEs <- function(data, t, dis, y, econ) {
   
   ## BLOCK 4: ECON MODEL ####################
   
-  econ_derivs = econ$odes(t, y, econ, total_confirmed, sum(Cdot))
+  econ_derivs = econ$odes(t, y, econ, C, Cdot, prob_isolated, data)
   
   ## return derivatives ############################
   
@@ -580,7 +618,7 @@ get_epi_vars = function(mat, ldata, vars, nRemove = 0){
 }
 
 
-get_results_df = function(runlist, epivars, econ){
+get_results_df = function(runlist, epivars, econ, ldata){
   popsize = sum(ldata$Npop3)
   plotnames = c('Counterfactual','Integrated model')
   listnames = c('counterfactual','integrated')
@@ -596,8 +634,9 @@ get_results_df = function(runlist, epivars, econ){
     # individual epi states
     Cout <-  epi_vars[[epivars]]
     
-    cons_scen = econ$get_cons_from_timeseries(y=mat,econ,epivar=Cout,data=ldata, integrate)
-    gdp_scen = econ$get_gdp_from_timeseries(mat,econ,Cout,ldata, integrate)
+    consandgdp = econ$get_cons_and_gdp_from_timeseries(y=mat,econ,epivar=Cout,data=ldata, integrate)
+    cons_scen = consandgdp[[1]]
+    gdp_scen = consandgdp[[2]]
     
     econ_df = data.frame(Day = Tout,
                Consumption = cons_scen,
@@ -621,6 +660,8 @@ get_results_df = function(runlist, epivars, econ){
     if(integrate==1)
       cat(paste0(ldata$q2,' & ',
                  econ$lambda_p1,' & ',
+                 ldata$cc,' & ',
+                 ldata$epidemic$prob_isolated,' & ',
                  round(max_infected,1),' & ',
                  round(cumulative_incidence_pc),' & '))
   }
@@ -640,11 +681,11 @@ get_results_df = function(runlist, epivars, econ){
 }
 
 
-plot_trajectories <- function(runlist,ldata){
+plot_trajectories <- function(runlist, econ, ldata){
   
   ## OUTPUT VARIABLES
   
-  plotdata = get_results_df(runlist, epivars='C', econ)
+  plotdata = get_results_df(runlist, epivars='C', econ, ldata)
   
   plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
     geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +

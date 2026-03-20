@@ -63,7 +63,7 @@ model1$get_cons = function(H_h, econ){
   
   # choose min
   cons = cons_d
-  cons[cons_s <= cons + 1e-10] <- cons_d[cons_s <= cons + 1e-10]
+  cons[cons_s < cons] <- cons_d[cons_s < cons]
   cons
 }
 
@@ -83,7 +83,7 @@ model1$econ_to_epi = function(y,econ) {
   
 }
 
-model1$odes = function(t, y, econ, confirmed, dot_confirmed){
+model1$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated){
   H_h = y[1] # household wealth
   
   G = econ$G # government spending
@@ -104,19 +104,22 @@ model1$odes = function(t, y, econ, confirmed, dot_confirmed){
 # function to get consumption from ode matrix output
 model1$get_cons_from_timeseries = function(y, econ, epivar, data, integrate=1){
   H_h = y[,2]
+  lf_index = 1 + econ$nEconODEs + (data$compindex$C_index-1)*data$nStrata + 1
+  lf_confirmed = y[,lf_index]
   
   if (integrate==1){
-    econ = epi_to_econ(epivar, econ, q1=data$q1, q2=data$q2)
+    econ = epi_to_econ(epivar, lf_confirmed, econ, data)
   }
   cons = econ$get_cons(H_h, econ)
   cons
 }
 
 # function to get gdp from ode matrix output
-model1$get_gdp_from_timeseries = function(y,econ,epivar,data,integrate=1){
+model1$get_cons_and_gdp_from_timeseries = function(y,econ,epivar,data,integrate=1){
   G = econ$G
   cons = econ$get_cons_from_timeseries(y,econ,epivar,data,integrate)
-  cons + G
+  GDP = cons + G
+  return(list(cons, GDP))
 }
 
 # demonstrate behaviour of econ model:
@@ -173,12 +176,13 @@ model2$get_cons = function(H_h, lambda, econ){
   
   # choose min
   cons = cons_s
-  cons[cons_d < cons + 1e-10] <- cons_d[cons_d < cons + 1e-10]
+  # if(sum(cons_s<cons_d)>1) print(which(cons_s<cons_d))
+  cons[cons_d < cons] <- cons_d[cons_d < cons]
   cons
 }
 
 # function to get derivative of consumption function
-model2$get_cons_deriv = function(H_h, dot_H_h, confirmed, dot_confirmed, econ){
+model2$get_gdp_deriv = function(H_h, dot_H_h, confirmed, dot_confirmed, econ, lambda, dot_lf){
   
   scalar = econ$scalar
   alpha0 = econ$alpha0
@@ -189,24 +193,31 @@ model2$get_cons_deriv = function(H_h, dot_H_h, confirmed, dot_confirmed, econ){
   theta = econ$theta
   G = econ$G
   
-  dot_link_function = 0
-  if(econ$integrate==1)
-    dot_link_function = epi_to_econ_deriv(confirmed, dot_confirmed)
-  
-  f_term = alpha0 + alpha1t*G*(1-theta) + alpha2t*H_h
-  f_prime = dot_link_function * (alpha1*G*(1-theta) + alpha2*H_h) + alpha2t * dot_H_h
-  g_term = 1 - alpha1t*(1 - theta)
-  g_prime = - dot_link_function * alpha1 * (1-theta)
-  
-  dot_cons = (g_term*f_prime - f_term*g_prime)/(g_term^2)
-  
   # compute cons_d (consumption assuming no reduction in labour supply)
-  # denom = 1 - alpha1t*(1 - theta)
-  # cons_d = (alpha0 + alpha1t*G*(1-theta) + alpha2t*H_h) / denom
-  # 
-  # if(econ$cons < cons_d) print(1)
-  
-  return(dot_cons)
+  denom = 1 - alpha1t*(1 - theta)
+  cons_d = (alpha0 + alpha1t*G*(1-theta) + alpha2t*H_h) / denom
+
+  # if consumption is supply determined
+  if(econ$cons < cons_d) {
+    
+    lf = econ$lf
+    dot_gdp = (lambda * dot_lf + econ$lambda_p0 * lf) / (1 - econ$lambda_p1 * lf)
+    
+  }else # if consumption is demand determined
+  {
+    dot_link_function = 0
+    if(econ$integrate==1)
+      dot_link_function = epi_to_econ_deriv(confirmed, dot_confirmed, ldata)
+    
+    f_term = alpha0 + alpha1t*G*(1-theta) + alpha2t*H_h
+    f_prime = dot_link_function * (alpha1*G*(1-theta) + alpha2*H_h) + alpha2t * dot_H_h
+    g_term = 1 - alpha1t*(1 - theta)
+    g_prime = - dot_link_function * alpha1 * (1-theta)
+    
+    dot_cons = (g_term*f_prime - f_term*g_prime)/(g_term^2)
+    dot_gdp = dot_cons
+  }
+  return(dot_gdp)
 }
 
 model2$cons_link_fun = function(y, econ){
@@ -228,9 +239,13 @@ model2$econ_to_epi = function(y,econ) {
   
 }
 
-model2$odes = function(t, y, econ, confirmed, dot_confirmed){
+model2$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated, data){
   H_h = y[1] # household wealth
   lambda = y[2] # productivity
+  
+  total_confirmed = sum(confirmed)
+  sum_dot_confirmed = sum(dot_confirmed)
+  dot_lf = - prob_isolated * dot_confirmed[1] /1e6 # lf is counted in millions
   
   G = econ$G # government spending
   theta = econ$theta # rate of tax
@@ -242,11 +257,9 @@ model2$odes = function(t, y, econ, confirmed, dot_confirmed){
   dot_H_h = S; # rate of wealth accumulation = change in money held by households
   
   # dY/dt = dC/dt because Y=C+G and G is constant
-  dot_cons = econ$get_cons_deriv(H_h, dot_H_h, confirmed, dot_confirmed, econ)
-  # if(econ$integrate==0)
-  #   dot_cons = 0
+  dot_gdp = econ$get_gdp_deriv(H_h, dot_H_h, total_confirmed, sum_dot_confirmed, econ, lambda, dot_lf)
   
-  dot_lambda = econ$lambda_p0 + econ$lambda_p1 * dot_cons
+  dot_lambda = econ$lambda_p0 + econ$lambda_p1 * dot_gdp
   # if(t<15)print(c(t,dot_lambda,lambda))
   econ_derivs = c(dot_H_h, dot_lambda) 
   
@@ -258,8 +271,10 @@ model2$odes = function(t, y, econ, confirmed, dot_confirmed){
 model2$get_cons_from_timeseries = function(y, econ, epivar, data, integrate=1){
   H_h = y[,2]
   lambda = y[,3]
+  lf_index = 1 + econ$nEconODEs + (data$compindex$C_index-1)*data$nStrata + 1
+  lf_confirmed = y[,lf_index]
   if (integrate==1){
-    econ = epi_to_econ(epivar, econ, q1=data$q1, q2=data$q2)
+    econ = epi_to_econ(epivar, lf_confirmed, econ, data)
   }
   cons = econ$get_cons(H_h, lambda, econ)
   cons

@@ -23,7 +23,8 @@ model1$alpha0 = 0.01 # cons0*(1-model1$alpha1)/3 # choices
 model1$gdp = y0*365 # for final comparisons
 model1$y0 = model1$gdp/365
 model1$lf = ldata$NNs[1]/1e6 # labour force in millions
-model1$lambda = model1$y0/model1$lf
+model1$employed = model1$lf*ldata$employmentrate/100
+model1$lambda = model1$y0/model1$employed
 
 # get initial conditions
 model1$econ_init = with(model1,{
@@ -134,7 +135,7 @@ test_model$alpha1 = model1$alpha1*(1+1/365)
 model2 <- model1
 model2$model_name = 'Model 2'
 
-model2$lambda_0 = model2$y0/model2$lf 
+model2$lambda_0 = model2$y0/model2$employed 
 model2$lambda_p0 = 0 # intrinsic growth of lambda
 model2$lambda_p1 = 0.01 # rate that lambda tracks output
 
@@ -176,7 +177,7 @@ model2$get_cons = function(H_h, lambda, econ){
   
   # choose min
   cons = cons_s
-  # if(sum(cons_s<cons_d)>1) print(which(cons_s<cons_d))
+  if(sum(cons_s<cons_d)>1) print(which(cons_s<cons_d))
   cons[cons_d < cons] <- cons_d[cons_d < cons]
   cons
 }
@@ -239,7 +240,7 @@ model2$econ_to_epi = function(y,econ) {
   
 }
 
-model2$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated, data){
+model2$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated){
   H_h = y[1] # household wealth
   lambda = y[2] # productivity
   

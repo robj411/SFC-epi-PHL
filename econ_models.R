@@ -24,7 +24,7 @@ model1$gdp = y0*365 # for final comparisons
 model1$y0 = model1$gdp/365
 model1$lf = ldata$NNs[1]/1e6 # labour force in millions
 model1$employed = model1$lf*ldata$employmentrate/100
-model1$lambda = model1$y0/model1$employed
+model1$lambda = model1$y0/model1$employed#lf
 
 # get initial conditions
 model1$econ_init = with(model1,{
@@ -135,7 +135,7 @@ test_model$alpha1 = model1$alpha1*(1+1/365)
 model2 <- model1
 model2$model_name = 'Model 2'
 
-model2$lambda_0 = model2$y0/model2$employed 
+model2$lambda_0 = model1$lambda
 model2$lambda_p0 = 0 # intrinsic growth of lambda
 model2$lambda_p1 = 0.01 # rate that lambda tracks output
 
@@ -183,7 +183,7 @@ model2$get_cons = function(H_h, lambda, econ){
 }
 
 # function to get derivative of consumption function
-model2$get_gdp_deriv = function(H_h, dot_H_h, confirmed, dot_confirmed, econ, lambda, dot_lf){
+model2$get_gdp_deriv = function(Y, H_h, dot_H_h, confirmed, dot_confirmed, econ, lambda, dot_lf){
   
   scalar = econ$scalar
   alpha0 = econ$alpha0
@@ -202,7 +202,9 @@ model2$get_gdp_deriv = function(H_h, dot_H_h, confirmed, dot_confirmed, econ, la
   if(econ$cons < cons_d) {
     
     lf = econ$lf
-    dot_gdp = (lambda * dot_lf + econ$lambda_p0 * lf) / (1 - econ$lambda_p1 * lf)
+    # dot_gdp = (lambda * dot_lf + econ$lambda_p0 * lf) / (1 - econ$lambda_p1 * lf)
+    dot_gdp = Y * lambda * (dot_lf + econ$lambda_p0 * lf) / 
+      (Y - lambda * econ$lambda_p1 * lf)
     
   }else # if consumption is demand determined
   {
@@ -258,9 +260,9 @@ model2$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated){
   dot_H_h = S; # rate of wealth accumulation = change in money held by households
   
   # dY/dt = dC/dt because Y=C+G and G is constant
-  dot_gdp = econ$get_gdp_deriv(H_h, dot_H_h, total_confirmed, sum_dot_confirmed, econ, lambda, dot_lf)
+  dot_gdp = econ$get_gdp_deriv(Y, H_h, dot_H_h, total_confirmed, sum_dot_confirmed, econ, lambda, dot_lf)
   
-  dot_lambda = econ$lambda_p0 + econ$lambda_p1 * dot_gdp
+  dot_lambda = lambda * (econ$lambda_p0 + econ$lambda_p1 / Y * dot_gdp)
   # if(t<15)print(c(t,dot_lambda,lambda))
   econ_derivs = c(dot_H_h, dot_lambda) 
   

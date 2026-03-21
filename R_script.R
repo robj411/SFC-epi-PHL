@@ -48,13 +48,13 @@ econ = model2
 nscen = 7
 parameter_combinations = data.frame(q1 = rep(0.86, nscen), 
                                     q2 = rep(0.0001, nscen),
-                                    lambdap = rep(0.01, nscen),
+                                    lambdap = rep(0.75, nscen),
                                     cc = rep(1,nscen),
                                     isolate = rep(1,nscen))
 parameter_combinations$q2[2] = 0.00001
 parameter_combinations$q2[3] = 0.001
-parameter_combinations$lambdap[4] = 0.001
-parameter_combinations$lambdap[5] = 0.02
+parameter_combinations$lambdap[4] = 0.5
+parameter_combinations$lambdap[5] = 0.99
 parameter_combinations$cc[6] = 0.5
 parameter_combinations$isolate[7] = 0
 for(rv in 1:nrow(parameter_combinations))
@@ -76,9 +76,9 @@ for(rv in 1:nrow(parameter_combinations))
     label = TeX(paste0(econ$model_name,"; $q_2$ = ", ldata$q2))
   }else{
     label = TeX(paste0(econ$model_name,"; $\\gamma_1 = ", econ$lambda_p1,
-                       "$; $q_2$ = ", ldata$q2,
-                       "$; $p_i$ = ", ldata$epidemic$prob_isolated,
-                       "$; $\\eta$ = ", parameter_combinations$cc[rv]))
+                       "$; $q_2 = ", ldata$q2,
+                       "$; $p_i = ", ldata$epidemic$prob_isolated,
+                       "$; $\\eta = ", parameter_combinations$cc[rv],"$"))
   }
   plotout = plotout + labs(title= label)
   ggsave(plotout,filename=paste0('figures/',econ$model_name,'_',

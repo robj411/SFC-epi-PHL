@@ -24,7 +24,7 @@ model1$gdp = y0*365 # for final comparisons
 model1$y0 = model1$gdp/365
 model1$lf = ldata$NNs[1]/1e6 # labour force in millions
 model1$employed = model1$lf*ldata$employmentrate/100
-model1$lambda = model1$y0/model1$employed#lf
+model1$lambda = model1$y0/model1$employed#model1$lf#
 
 # get initial conditions
 model1$econ_init = with(model1,{

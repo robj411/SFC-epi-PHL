@@ -662,13 +662,18 @@ get_results_df = function(runlist, epivars, econ, ldata){
     max_infected = max(all_infected)/1e6 # in millions
     recovered = get_epi_vars(mat=mat, ldata, vars='R', nRemove=econ$nEconODEs+1)
     cumulative_incidence_pc = max(recovered$R)/popsize*100
-    if(integrate==1)
-      cat(paste0(ldata$q2,' & ',
-                 econ$lambda_p1,' & ',
-                 ldata$cc,' & ',
-                 ldata$epidemic$prob_isolated,' & ',
-                 round(max_infected,1),' & ',
-                 round(cumulative_incidence_pc),' & '))
+    # if(integrate==1)
+      cat(paste0(plotnames[j],
+        # ldata$q2,' & ',
+        # econ$lambda_p1,' & ',
+        # ldata$cc,' & ',
+        # ldata$epidemic$prob_isolated,
+        ' & ',
+        round(max_infected,1),' & ',
+        scen_df[[j]]$Day[which.max(all_infected)],' & ',
+        round(cumulative_incidence_pc),' & ',
+        ifelse(j==1,'0 \\\\\n','')
+      ))
   }
   # join, divide, and return
   alleconvars = c(econ$econvarlabels, 'Consumption', 'GDP')
@@ -682,7 +687,7 @@ get_results_df = function(runlist, epivars, econ, ldata){
   gdplosspc = with(cumulativegdp, (V1[1]-V1[2])/V1[1])*100
   cat(paste0(round(gdplosspc,1),' \\\\\n '))
   
-  colnames(df)[colnames(df)=='C'] <- 'Confirmed'
+  colnames(df)[colnames(df)=='C'] <- 'Confirmed cases'
   
   df
 }
@@ -694,7 +699,8 @@ plot_trajectories <- function(runlist, econ, ldata){
   
   plotdata = get_results_df(runlist, epivars='C', econ, ldata)
   
-  plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) + 
+  plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) +
+    geom_point(data=data.frame(x=100,y=100),aes(x=x,y=y),colour='white') + 
     geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +
     facet_wrap(~variable,scales = 'free_y',nrow=1) +
     theme_bw(base_size=15) +
@@ -703,7 +709,7 @@ plot_trajectories <- function(runlist, econ, ldata){
           strip.background = element_blank(),
           # legend.margin=margin(0,0,0,0),
           legend.box.margin=margin(-0,-10,-20,-10)) + 
-    labs(y='',colour='')
+    labs(y='',colour='') 
   
   print(plotout)
   plotout

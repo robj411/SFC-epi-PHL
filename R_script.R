@@ -24,6 +24,7 @@ if(!file.exists(datafile)){
   library(wpp2024)
   library(wbstats)
   library(WDI)
+  library(furrr)
   
   ## starting variables ###############################
   data <- data_start()
@@ -45,18 +46,19 @@ econ = model2
 
 ## simulate ###########################################################
 
-nscen = 7
+nscen = 8
 parameter_combinations = data.frame(q1 = rep(0.862752, nscen), 
                                     q2 = rep(0.000237, nscen),
                                     lambdap = rep(0.75, nscen),
-                                    cc = rep(1,nscen),
+                                    cc = rep(0.4,nscen),
                                     isolate = rep(1,nscen))
 parameter_combinations$q2[2] = 0.0000001
 parameter_combinations$q2[3] = 0.01
 parameter_combinations$lambdap[4] = 0.5
 parameter_combinations$lambdap[5] = 1
-parameter_combinations$cc[6] = 0.5
-parameter_combinations$isolate[7] = 0
+parameter_combinations$cc[6] = 0.2
+parameter_combinations$cc[7] = 0.6
+parameter_combinations$isolate[8] = 0
 for(rv in 1:nrow(parameter_combinations))
 {
   cat(paste0('Parameter combination ',rv,' out of ',nrow(parameter_combinations),'\n'))

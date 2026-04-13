@@ -204,7 +204,7 @@ get_basic_contacts <- function(data) {
   
   # popsizes = sapply(age_groups16, function(x) sum(age_counts16[x]))
   
-  data = decompose_contacts(data, consumption_contact=1)
+  data = decompose_contacts(data, consumption_contact=0.4, print_values=T)
   data$contacts$basic_contact_matrix <- get_scaled_contacts(data)
   
   # combine country and disease parameters
@@ -217,7 +217,7 @@ get_basic_contacts <- function(data) {
 
 ##!! changing work-related contacts changes the counterfactual, because it changes the basic contact matrix
 # changing consumption-related contacts should not change the counterfactual because the basic contact matrix is unchanged
-decompose_contacts = function(data, consumption_contact=1){
+decompose_contacts = function(data, consumption_contact=0.4, print_values=F){
   
   worker_index = data$adInd
   popsizes = data$Npop3
@@ -233,11 +233,13 @@ decompose_contacts = function(data, consumption_contact=1){
   
   reduced_cms = data$reduced_cms
   p = data$lfpr
+  if(print_values) cat(paste0("Labour force participation rate: ",p,'\n'))
   q = 1-p
   
   worker_age_contacts = sum(reduced_cms$all[worker_index,])
   worker_age_self_contacts = reduced_cms$all[worker_index,worker_index]
   frac_work_contacts = sum(reduced_cms$work[worker_index,]) / worker_age_contacts
+  if(print_values) cat(paste0("Fraction of workers' contacts made at work: ",frac_work_contacts,'\n'))
   
   popfracs = popsizes/sum(popsizes)
   
@@ -253,8 +255,10 @@ decompose_contacts = function(data, consumption_contact=1){
   k_vec = reduced_cms$work[worker_index,] / sum(reduced_cms$work[worker_index,])
   # the fraction of adults making contact with workers as customers 
   kstar = popfracs[worker_index] * sum(k_vec[-worker_index]) / sum(popfracs[-worker_index])
+  if(print_values) cat(paste0("Fraction of workplace contacts made with non-working adults: ",kstar,'\n'))
   # the fraction of workplace contacts made with other workers
   fWW = k_vec[2] - kstar
+  if(print_values) cat(paste0("Fraction of workplace contacts made with other workers: ",fWW,'\n'))
   
   
   # the total number of workplace contacts between workers
@@ -281,15 +285,16 @@ decompose_contacts = function(data, consumption_contact=1){
   
   ##!! this is possibly not the right way to separate these components
   # what fraction of community contacts are associated with consumption?
-  Mcc[2:4, 2:4] = consumption_contact * reduced_cms$other
-  Mcc[1,] = Mcc[3,] 
-  Mcc[3,] = Mcc[3,] 
-  Mcc[,1] = Mcc[,3] * p 
-  Mcc[,3] = Mcc[,3] * q
+  Mcc = consumption_contact * Mcom
+  # Mcc[2:4, 2:4] = consumption_contact * reduced_cms$other
+  # Mcc[1,] = Mcc[3,] 
+  # Mcc[3,] = Mcc[3,] 
+  # Mcc[,1] = Mcc[,3] * p 
+  # Mcc[,3] = Mcc[,3] * q
   # four_to_three(Mcc,p,q)
   
   # subtract consumer--consumer contacts 
-  Mcom = Mcom - Mcc
+  Mcom = (1 - consumption_contact) * Mcom
   
   ## save
   contacts <- list()

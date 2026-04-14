@@ -200,6 +200,7 @@ get_basic_contacts <- function(data) {
   
   CM_16 <- unname(normalised_cms$all)
   
+  data$full_cms = normalised_cms
   data$reduced_cms = lapply(normalised_cms, function(x)  collapse_cm(contact_matrix = x, age_groups16, age_counts16))
   
   # popsizes = sapply(age_groups16, function(x) sum(age_counts16[x]))

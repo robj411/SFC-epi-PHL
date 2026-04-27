@@ -29,12 +29,12 @@ data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   ## disease variables ############################
   
   epidemic <- list()
-  epidemic$R0 <- 2.75 
-  epidemic$TEtoI <- 4.6 
-  epidemic$TItoR <- 4 
-  epidemic$TItoC <- 2
+  epidemic$R0 <- 2.41
+  epidemic$TEtoI <- 5.5
+  epidemic$TItoR <- 8
+  epidemic$TItoC <- 5
   epidemic$TCtoR <- epidemic$TItoR - epidemic$TItoC
-  epidemic$prob_detected <- 0.5
+  epidemic$prob_detected <- 0.25
   epidemic$prob_isolated <- 1
   
   data$epidemic = epidemic

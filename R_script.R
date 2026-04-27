@@ -84,11 +84,12 @@ for(rv in 1:nrow(parameter_combinations))
                        "$; $\\eta = ", parameter_combinations$cc[rv],"$"))
   }
   plotout = plotout + labs(title= label)
-  ggsave(plotout,filename=paste0('figures/',econ$model_name,'_',
-                                 econ$lambda_p1,'-',
-                                 ldata$q1,'-',
-                                 ldata$q2,'-',
-                                 parameter_combinations$cc[rv],'.png'),width=12,height=3.5)
+  ggsave(plotout,filename=paste0('figures/',econ$model_name,'_scenario_',rv,
+                                 # econ$lambda_p1,'-',
+                                 # ldata$q1,'-',
+                                 # ldata$q2,'-',
+                                 # parameter_combinations$cc[rv],
+                                 '.png'),width=12,height=3.5)
   
 }
 

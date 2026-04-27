@@ -154,10 +154,10 @@ transpose_and_normalise_conmats = function(cms, age_counts16){
 
 
 
-four_to_three = function(cm,p,q){
+four_to_three = function(cm,f1,f0){
   threebyfour = matrix(0, nrow = 3, ncol = 4)
   threebyfour[1,] = cm[2,]
-  threebyfour[2,] = p*cm[1,] + q*cm[3,]
+  threebyfour[2,] = f1*cm[1,] + f0*cm[3,]
   threebyfour[3,] = cm[4,]
   newmat = matrix(0, nrow = 3, ncol = 3)
   newmat[,1] = threebyfour[,2]
@@ -233,9 +233,9 @@ decompose_contacts = function(data, consumption_contact=0.4, print_values=F){
   data$nStrata <- length(data$NNs)
   
   reduced_cms = data$reduced_cms
-  p = data$lfpr
-  if(print_values) cat(paste0("Labour force participation rate: ",p,'\n'))
-  q = 1-p
+  f1 = data$lfpr
+  if(print_values) cat(paste0("Labour force participation rate: ",f1,'\n'))
+  f0 = 1-f1
   
   worker_age_contacts = sum(reduced_cms$all[worker_index,])
   worker_age_self_contacts = reduced_cms$all[worker_index,worker_index]
@@ -245,44 +245,44 @@ decompose_contacts = function(data, consumption_contact=0.4, print_values=F){
   popfracs = popsizes/sum(popsizes)
   
   # population size vector with working-age people split between two groups
-  N_4 = c(p*popsizes[worker_index], popsizes)
-  N_4[1+worker_index] = q*popsizes[worker_index]
+  N_4 = c(f1*popsizes[worker_index], popsizes)
+  N_4[1+worker_index] = f0*popsizes[worker_index]
   
-  # x=\frac{pN_1+qN_3}{N_1}
-  x = (p*N_4[1] + q*N_4[3])/N_4[1]
+  # mu=\frac{pN_1+qN_3}{N_1}
+  mu = (f1*N_4[1] + f0*N_4[3])/N_4[1]
   
   # fractions of workplace contacts made with others by workers
   # need to use conmat, or some other source
-  k_vec = reduced_cms$work[worker_index,] / sum(reduced_cms$work[worker_index,])
+  v_vec = reduced_cms$work[worker_index,] / sum(reduced_cms$work[worker_index,])
   # the fraction of adults making contact with workers as customers 
-  kstar = popfracs[worker_index] * sum(k_vec[-worker_index]) / sum(popfracs[-worker_index])
-  if(print_values) cat(paste0("Fraction of workplace contacts made with non-working adults: ",kstar,'\n'))
+  vstar = popfracs[worker_index] * sum(v_vec[-worker_index]) / sum(popfracs[-worker_index])
+  if(print_values) cat(paste0("Fraction of workplace contacts made with non-working adults: ",vstar,'\n'))
   # the fraction of workplace contacts made with other workers
-  fWW = k_vec[2] - kstar
-  if(print_values) cat(paste0("Fraction of workplace contacts made with other workers: ",fWW,'\n'))
+  Omega = v_vec[2] - vstar
+  if(print_values) cat(paste0("Fraction of workplace contacts made with other workers: ",Omega,'\n'))
   
   
   # the total number of workplace contacts between workers
-  WW = fWW * frac_work_contacts * worker_age_contacts / p
-  CW3 = kstar / (fWW * (x/2 +q)) * WW
-  CW2_plus_CW4 = WW / fWW - WW - (x/2 - p + 1)*CW3 
-  CW2 = CW2_plus_CW4 * k_vec[1] / (k_vec[1] + k_vec[3])
-  CW4 = CW2_plus_CW4 * k_vec[3] / (k_vec[1] + k_vec[3])
-  CC2 = reduced_cms$all[2,1] - p*CW2
-  CC4 = reduced_cms$all[2,3] - p*CW4
-  CC3 = reduced_cms$all[2,2] - p*WW - p*CW3 * (2*q + x)
+  WW = Omega * frac_work_contacts * worker_age_contacts / f1
+  CW3 = vstar / (Omega * (mu/2 +f0)) * WW
+  CW2_plus_CW4 = WW / Omega - WW - (mu/2 - f1 + 1)*CW3 
+  CW2 = CW2_plus_CW4 * v_vec[1] / (v_vec[1] + v_vec[3])
+  CW4 = CW2_plus_CW4 * v_vec[3] / (v_vec[1] + v_vec[3])
+  CC2 = reduced_cms$all[2,1] - f1*CW2
+  CC4 = reduced_cms$all[2,3] - f1*CW4
+  CC3 = reduced_cms$all[2,2] - f1*WW - f1*CW3 * (2*f0 + mu)
   
   Mww <- Mcw <- Mcom <- Mcc <- matrix(0, nrow = 4, ncol = 4)
   Mww[1,1] = WW
   
-  Mcw[1,] = c(x*CW3, CW2, q*CW3, CW4)
-  Mcw[2:4,1] = c(N_4[1] / N_4[2] * CW2, p*CW3, N_4[1] / N_4[4] * CW4)
+  Mcw[1,] = c(mu*CW3, CW2, f0*CW3, CW4)
+  Mcw[2:4,1] = c(N_4[1] / N_4[2] * CW2, f1*CW3, N_4[1] / N_4[4] * CW4)
   
   Mcom[2:4, 2:4] = reduced_cms$all
-  Mcom[1,] = c(p*CC3, CC2, q*CC3, CC4)
-  Mcom[3,] = c(p*CC3, CC2, q*CC3, CC4)
-  Mcom[2:4,1] = c(N_4[1] / N_4[2] * CC2, p*CC3, N_4[1] / N_4[4] * CC4)
-  Mcom[2:4,3] = c(N_4[3] / N_4[2] * CC2, q*CC3, N_4[3] / N_4[4] * CC4)
+  Mcom[1,] = c(f1*CC3, CC2, f0*CC3, CC4)
+  Mcom[3,] = c(f1*CC3, CC2, f0*CC3, CC4)
+  Mcom[2:4,1] = c(N_4[1] / N_4[2] * CC2, f1*CC3, N_4[1] / N_4[4] * CC4)
+  Mcom[2:4,3] = c(N_4[3] / N_4[2] * CC2, f0*CC3, N_4[3] / N_4[4] * CC4)
   
   ##!! this is possibly not the right way to separate these components
   # what fraction of community contacts are associated with consumption?
@@ -290,9 +290,9 @@ decompose_contacts = function(data, consumption_contact=0.4, print_values=F){
   # Mcc[2:4, 2:4] = consumption_contact * reduced_cms$other
   # Mcc[1,] = Mcc[3,] 
   # Mcc[3,] = Mcc[3,] 
-  # Mcc[,1] = Mcc[,3] * p 
-  # Mcc[,3] = Mcc[,3] * q
-  # four_to_three(Mcc,p,q)
+  # Mcc[,1] = Mcc[,3] * f1 
+  # Mcc[,3] = Mcc[,3] * f0
+  # four_to_three(Mcc,f1,f0)
   
   # subtract consumer--consumer contacts 
   Mcom = (1 - consumption_contact) * Mcom
@@ -304,7 +304,7 @@ decompose_contacts = function(data, consumption_contact=0.4, print_values=F){
   contacts$Mcc <- Mcc
   contacts$Mcom <- Mcom
   data$contacts = contacts
-  # print(four_to_three(get_scaled_contacts(data),p,q))
+  # print(four_to_three(get_scaled_contacts(data),f1,f0))
   
   return(data)
 }

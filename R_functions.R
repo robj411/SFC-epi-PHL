@@ -200,6 +200,7 @@ get_basic_contacts <- function(data) {
   
   CM_16 <- unname(normalised_cms$all)
   
+  data$full_cms = normalised_cms
   data$reduced_cms = lapply(normalised_cms, function(x)  collapse_cm(contact_matrix = x, age_groups16, age_counts16))
   
   # popsizes = sapply(age_groups16, function(x) sum(age_counts16[x]))
@@ -362,7 +363,7 @@ get_candidate_infectees <- function(data) {
   
   # force of infection from groups E (none), Iu (undetected), Id (not detected yet), C (detected)
   Fmat <- matrix(0, 4 * nStrata, 4 * nStrata)
-  Fmat[1:nStrata, (nStrata + 1):(4*nStrata)] <- cbind(FOIin, FOIin, prob_isolated*FOIin)
+  Fmat[1:nStrata, (nStrata + 1):(4*nStrata)] <- cbind(FOIin, FOIin, (1-prob_isolated)*FOIin)
   
   # rate of exit from states
   ones <- matrix(1,nStrata,1)
@@ -672,7 +673,6 @@ get_results_df = function(runlist, epivars, econ, ldata){
         # ldata$q2,' & ',
         # econ$lambda_p1,' & ',
         # ldata$cc,' & ',
-        # ldata$epidemic$prob_isolated,
         ' & ',
         round(max_infected,1),' & ',
         scen_df[[j]]$Day[which.max(all_infected)],' & ',

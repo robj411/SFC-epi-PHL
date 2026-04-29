@@ -84,7 +84,7 @@ model1$econ_to_epi = function(y,econ) {
   
 }
 
-model1$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated){
+model1$odes = function(t, y, econ, confirmed, dot_confirmed){
   H_h = y[1] # household wealth
   
   G = econ$G # government spending
@@ -200,7 +200,7 @@ model2$get_gdp_deriv = function(Y, H_h, dot_H_h, confirmed, dot_confirmed, econ,
 
   # if consumption is supply determined
   if(econ$cons < cons_d) {
-    
+    print(1)
     lf = econ$lf
     # dot_gdp = (lambda * dot_lf + econ$lambda_p0 * lf) / (1 - econ$lambda_p1 * lf)
     dot_gdp = Y * lambda * (dot_lf + econ$lambda_p0 * lf) / 
@@ -208,6 +208,7 @@ model2$get_gdp_deriv = function(Y, H_h, dot_H_h, confirmed, dot_confirmed, econ,
     
   }else # if consumption is demand determined
   {
+    
     dot_link_function = 0
     if(econ$integrate==1)
       dot_link_function = epi_to_econ_deriv(confirmed, dot_confirmed, ldata)
@@ -242,13 +243,13 @@ model2$econ_to_epi = function(y,econ) {
   
 }
 
-model2$odes = function(t, y, econ, confirmed, dot_confirmed, prob_isolated){
+model2$odes = function(t, y, econ, confirmed, dot_confirmed){
   H_h = y[1] # household wealth
   lambda = y[2] # productivity
   
   total_confirmed = sum(confirmed)
   sum_dot_confirmed = sum(dot_confirmed)
-  dot_lf = - prob_isolated * dot_confirmed[1] /1e6 # lf is counted in millions
+  dot_lf = - dot_confirmed[1] /1e6 # lf is counted in millions
   
   G = econ$G # government spending
   theta = econ$theta # rate of tax

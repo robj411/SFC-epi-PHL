@@ -29,13 +29,12 @@ data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   ## disease variables ############################
   
   epidemic <- list()
-  epidemic$R0 <- 2.41
+  epidemic$R0 <- 3
   epidemic$TEtoI <- 5.5
   epidemic$TItoR <- 8
-  epidemic$TItoC <- 5
+  epidemic$TItoC <- 8/3
   epidemic$TCtoR <- epidemic$TItoR - epidemic$TItoC
-  epidemic$prob_detected <- 0.25
-  epidemic$prob_isolated <- 1
+  epidemic$prob_detected <- 0.2
   
   data$epidemic = epidemic
   
@@ -352,29 +351,31 @@ get_candidate_infectees <- function(data) {
   
   # Rates
   prob_detected = epidemic$prob_detected
-  prob_isolated = epidemic$prob_isolated
-  sig1 <- prob_detected / epidemic$TEtoI
-  sig2 <- (1 - prob_detected) / epidemic$TEtoI
+  prob_undetected = 1 - prob_detected
+  sig1 <- prob_undetected / epidemic$TEtoI
+  sig2 <- prob_detected / epidemic$TEtoI
   g1 <- 1 / epidemic$TItoR
   g2 <- 1 / epidemic$TItoC
-  confirmed <- 1 / epidemic$TCtoR
+  ##!! compute beta from R0 assuming no one is confirmed
+  # g2 <- 1 / epidemic$TItoR
+  # confirmed <- 1 / epidemic$TCtoR
   
   FOIin <- contact_matrix * t(pracma::repmat(S, nStrata, 1)) / pracma::repmat(N, nStrata, 1)
   
   # force of infection from groups E (none), Iu (undetected), Id (not detected yet), C (detected)
-  Fmat <- matrix(0, 4 * nStrata, 4 * nStrata)
-  Fmat[1:nStrata, (nStrata + 1):(4*nStrata)] <- cbind(FOIin, FOIin, (1-prob_isolated)*FOIin)
+  Fmat <- matrix(0, 3 * nStrata, 3 * nStrata)
+  Fmat[1:nStrata, (nStrata + 1):(3*nStrata)] <- cbind(FOIin, FOIin)
   
   # rate of exit from states
   ones <- matrix(1,nStrata,1)
-  vvec <- c((sig1 + sig2)*ones, g1*ones, g2*ones, confirmed*ones)
+  vvec <- c((sig1 + sig2)*ones, g1*ones, g2*ones)
   
   n <- length(vvec)
   V <- diag(vvec)
   nmat <- diag(rep(1,nStrata));
   V[(nStrata + 1):(2 * nStrata), 1:nStrata] <- -sig1*nmat
   V[(2 * nStrata + 1):(3 * nStrata), 1:nStrata] <- -sig2*nmat
-  V[(3 * nStrata + 1):(4 * nStrata), (2 * nStrata + 1):(3 * nStrata)] <- -g2*nmat
+  # V[(3 * nStrata + 1):(4 * nStrata), (2 * nStrata + 1):(3 * nStrata)] <- -g2*nmat
   
   NGM <- Fmat %*% Matrix::solve(V)
   ev <- eigen(NGM,only.values = T,symmetric = F) #largest in magnitude (+/-) 
@@ -463,8 +464,7 @@ epi_to_econ = function(epi_var, lf_confirmed, econ, data){
   econ$scalar = prop_to
   
   # labour force (lf) is the original lf minus those confirmed
-  prob_isolated = data$epidemic$prob_isolated
-  econ$lf = econ$lf - (prob_isolated * lf_confirmed / 1e6) # in millions
+  econ$lf = econ$lf - (lf_confirmed / 1e6) # in millions
   
   return(econ)
   
@@ -511,13 +511,26 @@ ODEs <- function(data, t, y, econ) {
   R <- epi_vars_mat[,R_index[1]]
   total_confirmed = sum(C)
   
-  prob_isolated = epidemic$prob_isolated
+  
+  prob_detected = epidemic$prob_detected
+  TEtoI <- epidemic$TEtoI
+  TItoR <- epidemic$TItoR
+  TItoC <- epidemic$TItoC
+  TCtoR <- epidemic$TCtoR
+  
+  latent_det = E * prob_detected / TEtoI
+  latent_undet = E * (1 - prob_detected) / TEtoI
+  undet_recover = Iu / TItoR
+  det_detected = Id / TItoC
+  con_recover = C / TCtoR
+  
+  total_notifications = sum(det_detected)
   
   ## BLOCK 1: THE EPI->ECON LINK ####################
   ## response to pandemic / mandate
   
   if (integrate==1){
-    econ = epi_to_econ(total_confirmed, lf_confirmed=C[1], econ, data)
+    econ = epi_to_econ(epi_var = total_confirmed, lf_confirmed = C[1], econ, data)
   }
 
   ## BLOCK 2: THE ECON->EPI LINK ####################
@@ -553,22 +566,12 @@ ODEs <- function(data, t, y, econ) {
   # we recompute the contact matrix at each time step based on the econ variables
   contact_matrix = get_scaled_contacts(data, relative_consumption = relative_consumption, 
                             relative_work = relative_work)
-  I <- (1 - prob_isolated) * C + Id + Iu
+  I <- Id + Iu
   foi <- epidemic$beta * contact_matrix %*% (I/NN0)
   
   ## EQUATIONS
-  prob_detected = epidemic$prob_detected
-  TEtoI <- epidemic$TEtoI
-  TItoR <- epidemic$TItoR
-  TItoC <- epidemic$TItoC
-  TCtoR <- epidemic$TCtoR
   
   new_infections = S * foi
-  latent_det = E * prob_detected / TEtoI
-  latent_undet = E * (1 - prob_detected) / TEtoI
-  undet_recover = Iu / TItoR
-  det_detected = Id / TItoC
-  con_recover = C / TCtoR
   
   Sdot <- - new_infections #+ waning
   Edot <- new_infections - (latent_det + latent_undet)
@@ -589,7 +592,7 @@ ODEs <- function(data, t, y, econ) {
   
   ## BLOCK 4: ECON MODEL ####################
   
-  econ_derivs = econ$odes(t, y, econ, C, Cdot, prob_isolated)
+  econ_derivs = econ$odes(t, y, econ, C, Cdot)
   
   ## return derivatives ############################
   

@@ -30,11 +30,11 @@ data_start <- function(country_name = 'Philippines', iso3 = 'PHL') {
   
   epidemic <- list()
   epidemic$R0 <- 3
-  epidemic$TEtoI <- 5.5
-  epidemic$TItoR <- 8
-  epidemic$TItoC <- 8/3
+  epidemic$TEtoI <- 5
+  epidemic$TItoR <- 13.5
+  epidemic$TItoC <- 7.398
   epidemic$TCtoR <- epidemic$TItoR - epidemic$TItoC
-  epidemic$prob_detected <- 0.2
+  epidemic$prob_detected <- 0.604
   
   data$epidemic = epidemic
   
@@ -410,7 +410,7 @@ simulate_epi_econ_model <- function(data,  econ) {
   
   # initial conditions
   
-  imported <- 100 / sum(S0) * S0
+  imported <- 200 / sum(S0) * S0
   t0 <- data$tvec[1]
   epi_init_mat <- matrix(0, nrow = nStrata, ncol = nStates)
   epi_init_mat[, compindex$S_index[1]] <- S0 - imported
@@ -427,11 +427,11 @@ simulate_epi_econ_model <- function(data,  econ) {
                          parms=list(data=rundata, nStrata=nStrata, econ=econ))
   # plot(rowSums(tmpout[,12:23]))
   # store counterfactual values
-  econ$counter_time <- tmpout[,1]
-  linking_values = t(apply(tmpout[,-1],1,function(y){ econ = econ$cons_link_fun(y, econ);
-    unlist(econ$econ_to_epi(y,econ))}))
-  econ$counter_cons <- linking_values[,1]
-  econ$counter_worker <- linking_values[,2]
+  # econ$counter_time <- tmpout[,1]
+  # linking_values = t(apply(tmpout[,-1],1,function(y){ econ = econ$cons_link_fun(y, econ);
+  #   unlist(econ$econ_to_epi(y,econ))}))
+  # econ$counter_cons <- linking_values[,1]
+  # econ$counter_worker <- linking_values[,2]
   econ$integrate <- 1
   
   # solve ODEs
@@ -459,7 +459,10 @@ epi_to_econ = function(epi_var, lf_confirmed, econ, data){
   # scalar = 1/(1+exp(-(ref_val-epi_var)/gradient)) / ref_scalar
   # prop_to = baseline + (1-baseline) * scalar
   
-  prop_to = q1 + (1-q1) / (1+q2*epi_var)
+  # approximate notifications as total confirmed divided by duration confirmed
+  epi_var_new = epi_var/data$epidemic$TCtoR
+  
+  prop_to = q1 + (1-q1) / (1+q2*epi_var_new)
   
   econ$scalar = prop_to
   
@@ -474,8 +477,12 @@ epi_to_econ_deriv = function(epivar, dot_epivar, data){
   
   q1 = data$q1
   q2 = data$q2
+  TCtoR = data$epidemic$TCtoR
+  # approximate notifications as total confirmed divided by duration confirmed
+  epivar_new = epivar/TCtoR
+  dot_epivar_new = dot_epivar/TCtoR
   
-  deriv = (-(1-q1) * q2 * dot_epivar )/((1+q2*epivar )^2)
+  deriv = (-(1-q1) * q2 * dot_epivar_new )/((1+q2*epivar_new )^2)
   deriv
 }
 
@@ -542,21 +549,11 @@ ODEs <- function(data, t, y, econ) {
   relative_work = 1
   if (integrate==1){
     
-    # "counter" = counterfactual; these are econ variables that came from a prior simulation with no
-    # epidemic. In our simple models, they are just constant values. Here, we interpolate the values, 
-    # in case we update (but it might save a lot of computation time to just use a constant)
-    # time variables
-    counter_time = econ$counter_time
-    if(t<min(counter_time)) t = min(counter_time)
-    if(t>max(counter_time)) t = max(counter_time)
-    # interpolate counterfactuals
-    counter_cons = pracma::interp1(x=counter_time,y=econ$counter_cons,xi = t)
-    counter_worker = pracma::interp1(x=counter_time,y=econ$counter_worker,xi = t)
     # get work and consumption
     linked_vals = econ$econ_to_epi(y,econ)
     # take as proportion of counterfactual
-    relative_consumption = linked_vals$cons_link/counter_cons
-    relative_work = linked_vals$work_link/counter_worker #
+    relative_consumption = linked_vals$cons_link/econ$cons0
+    relative_work = linked_vals$work_link/econ$emp0 #
   }
   
   ## BLOCK 3: EPI MODEL ######################
@@ -649,9 +646,16 @@ get_results_df = function(runlist, epivars, econ, ldata){
     Cout <-  epi_vars[[epivars]]
     
     consandgdp = econ$get_cons_and_gdp_from_timeseries(y=mat,econ,epivar=Cout,data=ldata, integrate)
-    cons_scen = consandgdp[[1]]
+    cons_scen = consandgdp[[1]][[1]]
     gdp_scen = consandgdp[[2]]
     
+    cons_list <- c()
+    for(i in 2:3) cons_list[[i-1]] = data.frame(Day = Tout,
+                         Integrated = c('Supply','Demand')[i-1],
+                         variable = 'Consumption',
+                         value = consandgdp[[1]][[i]]/consandgdp[[1]][[1]][1]*100)
+    cons_df = do.call(rbind,cons_list)
+                         
     econ_df = data.frame(Day = Tout,
                Consumption = cons_scen,
                GDP = gdp_scen,
@@ -697,7 +701,9 @@ get_results_df = function(runlist, epivars, econ, ldata){
   
   colnames(df)[colnames(df)=='C'] <- 'Confirmed cases'
   
-  df
+  melted_df = reshape2::melt(df,id.var=c('Day','Integrated'))
+  melted_df = rbind(melted_df, cons_df)
+  melted_df
 }
 
 
@@ -706,21 +712,9 @@ plot_trajectories <- function(runlist, econ, ldata){
   ## OUTPUT VARIABLES
   
   plotdata = get_results_df(runlist, epivars='C', econ, ldata)
+  plotdata$Integrated = factor(plotdata$Integrated, levels=c('Counterfactual','Integrated model','Supply','Demand'))
   
-  plotout <- ggplot(reshape2::melt(plotdata,id.var=c('Day','Integrated'))) +
-    geom_point(data=data.frame(x=100,y=100),aes(x=x,y=y),colour='white') + 
-    geom_line(aes(x=Day,y=value,colour=Integrated),linewidth=2) +
-    facet_wrap(~variable,scales = 'free_y',nrow=1) +
-    theme_bw(base_size=15) +
-    theme(legend.position = 'top', 
-          strip.text.y = element_blank(), 
-          strip.background = element_blank(),
-          # legend.margin=margin(0,0,0,0),
-          legend.box.margin=margin(-0,-10,-20,-10)) + 
-    labs(y='',colour='') 
-  
-  print(plotout)
-  plotout
+  plotdata
   
 }
 

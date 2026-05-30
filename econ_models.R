@@ -7,29 +7,33 @@ model1$model_name = 'Model 1'
 # initial conditions
 
 # get initial conditions using equations
-y0 = ldata$gdp/365 # from annual to daily
-tax0 = ldata$tax/365 # from annual to daily
-theta = tax0 / y0 # from identity
-yd0 = (1-theta)*y0 # from identity
-cons0 = yd0 # from identity
-g0 = y0 - cons0 # gment/365 #  # from identity
+y0 = ldata$gdp/365 # from annual to daily, in billions
+tax0 = ldata$tax/365 # from annual to daily, in billions
+theta = tax0 / y0 # from identity, in billions
+yd0 = (1-theta)*y0 # from identity, in billions
+cons0 = yd0 # from identity, in billions
+g0 = y0 - cons0 # gment/365 #  # from identity, in billions
+h0 = 19032.66/1e3 # in billions
 
 # store parameters
+model1$econ_init = h0
 model1$G = g0 # we assume government spending is constant for now
 model1$theta = theta #Tax rate on income
-model1$alpha1 = 0.7 # choices
-model1$alpha2 = .5/365 # choices; goes from annual to daily
-model1$alpha0 = 0.01 # cons0*(1-model1$alpha1)/3 # choices
+model1$alpha1 = 0.6839286/.9 # choices
+model1$alpha2 = 0.005339403/365 # choices; goes from annual to daily
+model1$alpha0 = with(model1, cons0 - h0*alpha2 - yd0*alpha1) 
+print(model1$alpha0)
 model1$gdp = y0*365 # for final comparisons
 model1$y0 = model1$gdp/365
 model1$lf = ldata$NNs[1]/1e6 # labour force in millions
-model1$employed = model1$lf*ldata$employmentrate/100
-model1$lambda = model1$y0/model1$employed#model1$lf#
+model1$emp0 = model1$lf*ldata$employmentrate/100
+model1$lambda = model1$y0/model1$emp0#model1$lf#
+model1$cons0 = cons0
 
 # get initial conditions
-model1$econ_init = with(model1,{
-  c( ( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2)
-})
+# model1$econ_init = with(model1,{
+#   c( ( cons0*(1-alpha1*(1-theta)) - alpha0 - alpha1*(1-theta)*g0 )/alpha2)
+# })
 
 
 # variable names we need to know later
@@ -43,10 +47,15 @@ model1$econvarnames = c('H_h')
 # the number of odes
 model1$nEconODEs = length(model1$econvarnames)
 
+model1$get_cons_supply <- function(econ){
+  # find Y given supply
+  Y_s = econ$lf * econ$lambda
+  G = econ$G
+  cons_s = pmax(0, Y_s - G)
+  cons_s
+}
 
-# function to get consumption from y and econ
-model1$get_cons = function(H_h, econ){
-  
+model1$get_cons_demand <- function(H_h, econ){
   scalar = econ$scalar
   alpha0 = econ$alpha0
   alpha1 = scalar*econ$alpha1
@@ -54,13 +63,20 @@ model1$get_cons = function(H_h, econ){
   theta = econ$theta
   G = econ$G
   
-  # find Y given supply
-  Y_s = econ$lf * econ$lambda
-  cons_s = pmax(0, Y_s - G)
-  
-  # compute cons_d (consumption assuming no reduction in labour supply)
   denom = 1 - alpha1*(1 - theta)
   cons_d = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
+  cons_d
+}
+
+
+# function to get consumption from y and econ
+model1$get_cons = function(H_h, econ){
+  
+  # find Y given supply
+  cons_s = econ$get_cons_supply(econ)
+  
+  # compute cons_d (consumption assuming no reduction in labour supply)
+  cons_d = econ$get_cons_demand(H_h, econ)
   
   # choose min
   cons = cons_d
@@ -112,14 +128,16 @@ model1$get_cons_from_timeseries = function(y, econ, epivar, data, integrate=1){
     econ = epi_to_econ(epivar, lf_confirmed, econ, data)
   }
   cons = econ$get_cons(H_h, econ)
-  cons
+  cons_d = econ$get_cons_demand(H_h, econ)
+  cons_s = econ$get_cons_supply(econ)
+  list(cons, cons_s, cons_d)
 }
 
 # function to get gdp from ode matrix output
 model1$get_cons_and_gdp_from_timeseries = function(y,econ,epivar,data,integrate=1){
   G = econ$G
   cons = econ$get_cons_from_timeseries(y,econ,epivar,data,integrate)
-  GDP = cons + G
+  GDP = cons[[1]] + G
   return(list(cons, GDP))
 }
 
@@ -156,10 +174,25 @@ model2$econvarnames = c('H_h','lambda')
 # the number of odes
 model2$nEconODEs = length(model2$econvarnames)
 
+model2$get_cons_supply <- function(lambda, econ){
+  # find Y given supply
+  Y_s = econ$lf * lambda
+  G = econ$G
+  cons_s = pmax(0, Y_s - G)
+  cons_s
+}
 
 # function to get consumption from y and econ
 model2$get_cons = function(H_h, lambda, econ){
   
+  # find Y given supply
+  cons_s = econ$get_cons_supply(lambda, econ)
+  # Y_s = econ$lf * lambda
+  # G = econ$G
+  # cons_s = pmax(0, Y_s - G)
+  
+  # compute cons_d (consumption assuming no reduction in labour supply)
+  # cons_d = econ$get_cons_demand(H_h, econ)
   scalar = econ$scalar
   alpha0 = econ$alpha0
   alpha1 = scalar*econ$alpha1
@@ -167,11 +200,6 @@ model2$get_cons = function(H_h, lambda, econ){
   theta = econ$theta
   G = econ$G
   
-  # find Y given supply
-  Y_s = econ$lf * lambda
-  cons_s = pmax(0, Y_s - G)
-  
-  # compute cons_d (consumption assuming no reduction in labour supply)
   denom = 1 - alpha1*(1 - theta)
   cons_d = (alpha0 + alpha1*G*(1-theta) + alpha2*H_h) / denom
   
@@ -200,12 +228,12 @@ model2$get_gdp_deriv = function(Y, H_h, dot_H_h, confirmed, dot_confirmed, econ,
 
   # if consumption is supply determined
   if(econ$cons < cons_d) {
-    print(1)
     lf = econ$lf
     # dot_gdp = (lambda * dot_lf + econ$lambda_p0 * lf) / (1 - econ$lambda_p1 * lf)
     dot_gdp = Y * lambda * (dot_lf + econ$lambda_p0 * lf) / 
       (Y - lambda * econ$lambda_p1 * lf)
-    
+    # print(c(0, Y, lambda, Y - lambda * econ$lambda_p1 * lf, Y, lambda * econ$lambda_p1 * lf))
+    # derivative is not defined for econ$lambda_p1=1
   }else # if consumption is demand determined
   {
     
@@ -266,7 +294,6 @@ model2$odes = function(t, y, econ, confirmed, dot_confirmed){
   dot_lambda = lambda * (econ$lambda_p0 + econ$lambda_p1 / Y * dot_gdp)
   # if(t<15)print(c(t,dot_lambda,lambda))
   econ_derivs = c(dot_H_h, dot_lambda) 
-  
   list(econ_derivs)
   
 }
@@ -281,7 +308,9 @@ model2$get_cons_from_timeseries = function(y, econ, epivar, data, integrate=1){
     econ = epi_to_econ(epivar, lf_confirmed, econ, data)
   }
   cons = econ$get_cons(H_h, lambda, econ)
-  cons
+  cons_d = econ$get_cons_demand(H_h, econ)
+  cons_s = econ$get_cons_supply(lambda, econ)
+  list(cons, cons_s, cons_d)
 }
 
 

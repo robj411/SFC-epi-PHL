@@ -7,6 +7,7 @@ library(ggplot2)
 library(viridis)
 library(latex2exp)
 library(data.table)
+library(odin)
 
 # set up basics
 
@@ -14,7 +15,8 @@ set.seed(0)
 setwd(getSrcDirectory(function(){})[1])
 
 # load functions
-source('R_functions.R');
+# source('R_functions.R');
+source('functions.R')
 
 # read or create epi and country structures
 datafile <- 'data_file.Rds'
@@ -25,6 +27,7 @@ if(!file.exists(datafile)){
   library(wbstats)
   library(WDI)
   library(furrr)
+  source('data_functions.R')
   
   ## starting variables ###############################
   data <- data_start()
@@ -43,6 +46,8 @@ if(!file.exists(datafile)){
 source('econ_models.R')
 # choose an econ model
 econ = model2
+odinfile = paste0("odin_",econ$model_name,".R")
+econ$gen = odin::odin(odinfile)
 
 ## simulate ###########################################################
 
@@ -70,13 +75,15 @@ for(rv in 1:nrow(parameter_combinations)){
   ldata$cc = parameter_combinations$cc[rv]
   ldata = decompose_contacts(ldata, consumption_contact = parameter_combinations$cc[rv])
   # print(ldata$epidemic$beta)
+  if(rv==1) counterfactual = simulate_epi_econ_model(data = ldata, econ = econ, integrate = 0)$trajectories
   
   ## run model
-  runlist <- simulate_epi_econ_model(data = ldata, econ = econ)
+  runlist <- simulate_epi_econ_model(data = ldata, econ = econ, integrate = 1)
+  runlist$counterfactual = counterfactual
   
-  plotdata = plot_trajectories(runlist, econ, ldata)
+  plotdata = plot_trajectories(runlist, econ, ldata, printflag=(rv==1))
   
-  if(econ$model_name == 'Model 1'){
+  if(econ$model_name == 'model1'){
     label = TeX(paste0(econ$model_name,"; $q_2$ = ", ldata$q2))
   }else{
     label = TeX(paste0(#econ$model_name,'; ',

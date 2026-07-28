@@ -24,10 +24,10 @@ which will load also the files `data_file.Rds`, which contains stored
 objects for parametrising the model; `functions.R`, which contains the
 functions for solving the epidemiological model with odin and plotting
 the results; and `econ_models.R`, which contains economic variables
-which correspond to the overleaf document. There are two odin files,
-`odin_model1.R` and `odin_model2.R`, which encode a single-variable
-model (wealth) and a two-variable model (wealth and productivity),
-respectively.
+which correspond to the overleaf document. There are two odin models,
+saving in files `odin_model1.R` and `odin_model2.R`, which encode a
+single-variable model (wealth) and a two-variable model (wealth and
+productivity), respectively.
 
 Other files contain code examples which are taken and adapted mostly
 from <https://github.com/marcoverpas/Italy-SFC-Model> and
@@ -66,7 +66,7 @@ spending, which in this model we keep constant):
 cat(with(model1,c(alpha0, alpha1, alpha2, theta, G)))
 ```
 
-    ## 0.01345824 0.7599207 1.46285e-05 0.1410444 0.009395317
+    ## 0.0109985 0.7695 0.0001150685 0.1410444 0.009395317
 
 The initial conditions for the time-varying quantities:
 
@@ -161,7 +161,7 @@ $$ {H}_h(0) = \frac{(1 - \alpha_1){C}(0) - \alpha_0}{\alpha_2}$$
 
 and our fitted values of $\alpha_1$ and $\alpha_2$ and sourced value of
 wealth, ${H}_h = 19$ trillion PHP, we can compute
-$\alpha_0 = 0.0134582$.
+$\alpha_0 = 0.0109985$.
 
 ### 1.1.3 Resulting trajectories
 
@@ -202,12 +202,12 @@ $$\begin{align}
 
 <div class="figure">
 
-<img src="README_files/figure-gfm/statetransitions-1.png" alt="Disease state transitions. $S$: susceptible. $E$: exposed. $I^{a}$: asymptomatic infectious. $I^{s}$: symptomatic infectious. $H$: in need of hospitalisation. $R$: recovered. $D$: died. $j$: stratum." width="50%" />
+<img src="README_files/figure-gfm/statetransitions-1.png" alt="Disease state transitions. $S$: susceptible. $E$: exposed. $I^{u}$: infectious and will not be detected. $I^{d}$: infectious and will be detected. $C$: confirmed case. $R$: recovered. $j$: stratum." width="50%" />
 <p class="caption">
 <span id="fig:statetransitions"></span>Figure 2.1: Disease state
-transitions. $S$: susceptible. $E$: exposed. $I^{a}$: asymptomatic
-infectious. $I^{s}$: symptomatic infectious. $H$: in need of
-hospitalisation. $R$: recovered. $D$: died. $j$: stratum.
+transitions. $S$: susceptible. $E$: exposed. $I^{u}$: infectious and
+will not be detected. $I^{d}$: infectious and will be detected. $C$:
+confirmed case. $R$: recovered. $j$: stratum.
 </p>
 
 </div>

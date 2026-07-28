@@ -38,9 +38,9 @@ always_allow_html: true
 source('R_script.R')
 ```
 
-which will load also the files `data_file.Rds`, which contains stored objects for parametrising the model; `functions.R`, which contains the functions for solving the epidemiological model with odin and plotting the results; and `econ_models.R`, which contains economic variables which correspond to the overleaf document. There are two odin models, saving in files `odin_model1.R` and `odin_model2.R`, which encode a single-variable model (wealth) and a two-variable model (wealth and productivity), respectively.
+which will load also the files `data_file.Rds`, which contains stored objects for parametrising the model; `functions.R`, which contains the functions for solving the epidemiological model with odin and plotting the results; `data_functions.R`, which contains functions for processing the data stored in `data_file.Rds`; and `econ_models.R`, which contains economic variables which correspond to the overleaf document. There are two odin models, saved in files `odin_model1.R` and `odin_model2.R`, which encode a single-variable model (wealth) and a two-variable model (wealth and productivity), respectively.
 
-Other files contain code examples which are taken and adapted mostly from https://github.com/marcoverpas/Italy-SFC-Model and https://github.com/marcoverpas/Six_lectures_on_sfc_models.
+<!-- Other files contain code examples which are taken and adapted mostly from https://github.com/marcoverpas/Italy-SFC-Model and https://github.com/marcoverpas/Six_lectures_on_sfc_models. -->
 
 ```{r setup, include=FALSE}
 library(ggplot2)  
@@ -274,7 +274,7 @@ The epidemic model has:
     \draw [arrow] (L1) -- node [left] {$k^{6}_{j}$} (I1);
     \draw [arrow] (L2) edge[bend left=10] node [above] (T6) {$k^3$} (R);
     \draw [arrow] (I1) -- node [right] {$k^{7}_{j}(t)$} (R);
-   \plate[inner sep=0.25cm, yshift=0.12cm] {plate3} {(S) (L2)} {$j\in\{1,...,m_J\}$} {none}; 
+   \plate[inner sep=0.25cm, yshift=0.12cm] {plate3} {(S) (L2) (R) (I1)} {$j\in\{1,...,m_J\}$} {none}; 
 \end{tikzpicture}
 ```
 

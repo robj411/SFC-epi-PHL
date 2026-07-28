@@ -23,15 +23,14 @@ source('R_script.R')
 which will load also the files `data_file.Rds`, which contains stored
 objects for parametrising the model; `functions.R`, which contains the
 functions for solving the epidemiological model with odin and plotting
-the results; and `econ_models.R`, which contains economic variables
-which correspond to the overleaf document. There are two odin models,
-saving in files `odin_model1.R` and `odin_model2.R`, which encode a
-single-variable model (wealth) and a two-variable model (wealth and
-productivity), respectively.
+the results; `data_functions.R`, which contains functions for processing
+the data stored in `data_file.Rds`; and `econ_models.R`, which contains
+economic variables which correspond to the overleaf document. There are
+two odin models, saved in files `odin_model1.R` and `odin_model2.R`,
+which encode a single-variable model (wealth) and a two-variable model
+(wealth and productivity), respectively.
 
-Other files contain code examples which are taken and adapted mostly
-from <https://github.com/marcoverpas/Italy-SFC-Model> and
-<https://github.com/marcoverpas/Six_lectures_on_sfc_models>.
+<!-- Other files contain code examples which are taken and adapted mostly from https://github.com/marcoverpas/Italy-SFC-Model and https://github.com/marcoverpas/Six_lectures_on_sfc_models. -->
 
 # 1 Econ models
 

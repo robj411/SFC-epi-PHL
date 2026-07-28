@@ -15,8 +15,8 @@ set.seed(0)
 setwd(getSrcDirectory(function(){})[1])
 
 # load functions
-# source('R_functions.R');
 source('functions.R')
+source('data_functions.R')
 
 # read or create epi and country structures
 datafile <- 'data_file.Rds'
@@ -27,7 +27,6 @@ if(!file.exists(datafile)){
   library(wbstats)
   library(WDI)
   library(furrr)
-  source('data_functions.R')
   
   ## starting variables ###############################
   data <- data_start()
@@ -45,7 +44,7 @@ if(!file.exists(datafile)){
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model2
+econ = model1
 odinfile = paste0("odin_",econ$model_name,".R")
 econ$gen = odin::odin(odinfile)
 
@@ -59,13 +58,13 @@ parameter_combinations = data.frame(q1 = rep(0.862752, nscen),
 parameter_combinations$q1[2] = 0.73
 parameter_combinations$q1[3] = 0.93
 parameter_combinations$q2[4] = 0.0000001
-parameter_combinations$q2[5] = 0.0005
+parameter_combinations$q2[5] = 0.001
 parameter_combinations$lambdap[6] = 0.25
 parameter_combinations$lambdap[7] = 0.75
 parameter_combinations$cc[8] = 0.2
 parameter_combinations$cc[9] = 0.6
 sensvars = unique(colnames(parameter_combinations))
-sensvarnames = c('q_1','q_2','\\lambda_1','\\eta')
+sensvarnames = c('q_1','q_2','\\gamma_1','\\eta')
 plotdatalist = list()
 for(rv in 1:nrow(parameter_combinations)){
   # cat(paste0('Parameter combination ',rv,' out of ',nrow(parameter_combinations),'\n'))
@@ -75,11 +74,11 @@ for(rv in 1:nrow(parameter_combinations)){
   ldata$cc = parameter_combinations$cc[rv]
   ldata = decompose_contacts(ldata, consumption_contact = parameter_combinations$cc[rv])
   # print(ldata$epidemic$beta)
-  if(rv==1) counterfactual = simulate_epi_econ_model(data = ldata, econ = econ, integrate = 0)$trajectories
+  if(rv==1) independent = simulate_epi_econ_model(data = ldata, econ = econ, integrate = 0)$trajectories
   
   ## run model
   runlist <- simulate_epi_econ_model(data = ldata, econ = econ, integrate = 1)
-  runlist$counterfactual = counterfactual
+  runlist$independent = independent
   
   plotdata = plot_trajectories(runlist, econ, ldata, printflag=(rv==1))
   
@@ -92,14 +91,15 @@ for(rv in 1:nrow(parameter_combinations)){
                        "$; $\\gamma_1 = ", signif(econ$lambda_p1,3),
                        "$; $\\eta = ", signif(parameter_combinations$cc[rv],3),"$"))
   }
-  
+  supplydemandcolour = 'midnightblue'
+  indecolour = 'darkslategray3'
   if(rv==1){
     plotout <- ggplot(plotdata) +
       geom_point(data=data.frame(x=100,y=100),aes(x=x,y=y),colour='white') + 
       geom_line(aes(x=Day,y=value,colour=Integrated,linewidth=Integrated,linetype=Integrated)) +
-      scale_linewidth_manual(values = c(Counterfactual=2,Demand=0.5,Supply=1,`Integrated model`=2),guide = 'none') +
-      scale_linetype_manual(values = c(Counterfactual=1,Demand=1,Supply=3,`Integrated model`=1),guide = 'none') +
-      scale_colour_manual(values = c(Counterfactual='midnightblue',Demand='black',Supply='black',`Integrated model`='hotpink')) +
+      scale_linewidth_manual(values = c(`Independent models`=2,Demand=0.5,Supply=1,`Integrated model`=2),guide = 'none') +
+      scale_linetype_manual(values = c(`Independent models`=1,Demand=1,Supply=3,`Integrated model`=1),guide = 'none') +
+      scale_colour_manual(values = c(`Independent models`=indecolour,Demand=supplydemandcolour,Supply=supplydemandcolour,`Integrated model`='hotpink')) +
       facet_wrap(~variable,scales = 'free_y',nrow=1) +
       theme_bw(base_size=15) +
       theme(legend.position = 'top', 
@@ -111,13 +111,13 @@ for(rv in 1:nrow(parameter_combinations)){
                                                       linetype = c(1,1,3,1)) ) ) +
       labs(y='',colour='',x='Day') 
     
-    plotout = plotout + labs(title= label)
+    # plotout = plotout + labs(title= label)
     ggsave(plotout,filename=paste0('figures/',econ$model_name,'_scenario_',rv,
                                    # econ$lambda_p1,'-',
                                    # ldata$q1,'-',
                                    # ldata$q2,'-',
                                    # parameter_combinations$cc[rv],
-                                   '.png'),width=12,height=3.5)
+                                   '.png'),width=12,height=3)
   }else{
     sensind = floor(rv/2)
     plotdata$sensvar = parameter_combinations[[sensind]][rv]
@@ -135,9 +135,9 @@ for(rv in 1:nrow(parameter_combinations)){
       plotout <- ggplot(plotdata) +
         # geom_point(data=data.frame(x=100,y=100),aes(x=x,y=y),colour='white') + 
         geom_line(aes(x=Day,y=value,colour=Integrated,linewidth=Integrated,linetype=Integrated)) +
-        scale_linewidth_manual(values = c(Counterfactual=2,Demand=0.5,Supply=1,`Integrated model`=2),guide = 'none') +
-        scale_linetype_manual(values = c(Counterfactual=1,Demand=1,Supply=3,`Integrated model`=1),guide = 'none') +
-        scale_colour_manual(values = c(Counterfactual='midnightblue',Demand='black',Supply='black',`Integrated model`='hotpink')) +
+        scale_linewidth_manual(values = c(`Independent models`=2,Demand=0.5,Supply=1,`Integrated model`=2),guide = 'none') +
+        scale_linetype_manual(values = c(`Independent models`=1,Demand=1,Supply=3,`Integrated model`=1),guide = 'none') +
+        scale_colour_manual(values = c(`Independent models`=indecolour,Demand=supplydemandcolour,Supply=supplydemandcolour,`Integrated model`='hotpink')) +
         facet_grid(variable~sensvar,labeller = labeller(
           sensvar = as_labeller(appender, default = label_parsed),  # transform + parse
           variable     =  label_wrap_gen(width = 10)                                         # no parsing

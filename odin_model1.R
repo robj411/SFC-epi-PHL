@@ -1,20 +1,18 @@
-## Odin DSL: integrated epi-econ model, Model 1 (constant productivity)
+## Odin integrated epi-econ model, Model 1 (constant productivity)
 ##
-## State variables: H_h (econ), then S, E, Iu, Id, C, R (epi, each dim 4)
-## Column order in output matches get_epi_vars() expectations:
-##   col 1 = t, col 2 = H_h, cols 3-6 = S[1:4], cols 7-10 = E[1:4], ...
+## Column order in output: t, H_h, S[1:4], E[1:4], Iu[1:4], Id[1:4], C[1:4], R[1:4]
 
 ## User parameters: econ #############################
 
-alpha0 <- user()
-alpha1 <- user()
-alpha2 <- user()
-theta  <- user()
-G      <- user()
-cons0  <- user()
-emp0   <- user()
-lf     <- user()
-lambda <- user()
+alpha0    <- user()
+alpha1    <- user()
+alpha2    <- user()
+theta     <- user()
+G         <- user()
+cons0     <- user()
+emp0      <- user()
+lf        <- user()
+lambda    <- user()
 
 ## User parameters: epi-econ coupling #############################
 
@@ -53,13 +51,13 @@ dim(S_init) <- 4
 E_init[]    <- user()
 dim(E_init) <- 4
 
-initial(H_h)   <- H_h_init
-initial(S[])   <- S_init[i]
-initial(E[])   <- E_init[i]
-initial(Iu[])  <- 0
-initial(Id[])  <- 0
-initial(C[])   <- 0
-initial(R[])   <- 0
+initial(H_h)    <- H_h_init
+initial(S[])    <- S_init[i]
+initial(E[])    <- E_init[i]
+initial(Iu[])   <- 0
+initial(Id[])   <- 0
+initial(C[])    <- 0
+initial(R[])    <- 0
 
 dim(S)  <- 4
 dim(E)  <- 4
@@ -75,7 +73,7 @@ notifications <- total_C / TCtoR
 scalar        <- if (integrate == 1) q1 + (1 - q1) / (1 + q2 * notifications) else 1
 available_lf        <- if (integrate == 1) lf - C[1] / 1e6 else lf
 
-## Block 2: Econ -> Epi (demand-determined) #############################
+## Block 2: Econ -> Epi  #############################
 
 alpha1t <- scalar * alpha1
 alpha2t <- scalar * alpha2
@@ -96,13 +94,13 @@ contact[,] <- Mcom[i, j] +
   relative_consumption ^ 2 * Mcc[i, j]
 dim(contact) <- c(4, 4)
 
-I_total[]       <- Id[i] + Iu[i]
+I_total[]        <- Id[i] + Iu[i]
 dim(I_total)     <- 4
 
-foi_contrib[,] <- contact[i, j] * I_total[j] / NNs[j]
-dim(foi_contrib)  <- c(4, 4)
+foi_contrib[,]   <- contact[i, j] * I_total[j] / NNs[j]
+dim(foi_contrib) <- c(4, 4)
 
-foi[] <- beta * sum(foi_contrib[i, ])
+foi[]    <- beta * sum(foi_contrib[i, ])
 dim(foi) <- 4
 
 ## Transition rates #############################
@@ -135,9 +133,8 @@ dim(dot_R)   <- 4
 
 ## Block 4: Econ derivatives #############################
 
-# Econ (Model 1: SIM)
-Y  <- cons + G
-YD <- Y * (1 - theta)
+Y       <- cons + G
+YD      <- Y * (1 - theta)
 dot_H_h <- YD - cons
 
 ## Odin outputs ############################################

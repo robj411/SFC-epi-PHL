@@ -1,7 +1,6 @@
-## Odin DSL: integrated epi-econ model, Model 2 (time-varying productivity)
+## Odin integrated epi-econ model, Model 2 (time-varying productivity)
 ##
 ## Extends Model 1: lambda (productivity) is a state variable that tracks output growth.
-## State variables: H_h, lambda (econ), then S, E, Iu, Id, C, R (epi, each dim 4)
 ## Column order in output: t, H_h, lambda, S[1:4], E[1:4], Iu[1:4], Id[1:4], C[1:4], R[1:4]
 
 ## User parameters: econ #############################
@@ -139,7 +138,6 @@ dim(dot_R)   <- 4
 
 ## Block 4: Econ derivatives #############################
 
-# Econ (Model 2: time-varying productivity)
 Y       <- cons + G
 YD      <- Y * (1 - theta)
 dot_H_h <- YD - cons

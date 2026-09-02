@@ -14,13 +14,13 @@ epi-SFC models
     equations](#21-ordinary-differential-equations)
   - [2.2 Disease state transitions](#22-disease-state-transitions)
 
-**To run the code**, type
+To **run the code**, type
 
 ``` r
 source('R_script.R')
 ```
 
-which will load also the files `data_file.Rds`, which contains stored
+This script will load the files `data_file.Rds`, which contains stored
 objects for parametrising the model; `functions.R`, which contains the
 functions for solving the epidemiological model with odin and plotting
 the results; `data_functions.R`, which contains functions for processing

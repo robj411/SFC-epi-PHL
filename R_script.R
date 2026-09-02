@@ -44,27 +44,40 @@ if(!file.exists(datafile)){
 ## load econ models, which are written into file econ_models.R
 source('econ_models.R')
 # choose an econ model
-econ = model1
+econ = model2
 odinfile = paste0("odin_",econ$model_name,".R")
 econ$gen = odin::odin(odinfile)
 
 ## simulate ###########################################################
 
-nscen = 9
-parameter_combinations = data.frame(q1 = rep(0.862752, nscen), 
-                                    q2 = rep(0.000237, nscen),
+nscen = 11
+q1 = 0.86273916
+q2 = 0.02158386
+parameter_combinations = data.frame(q1 = rep(q1, nscen), 
+                                    q2 = rep(q2, nscen),
                                     lambdap = rep(0.5, nscen),
-                                    cc = rep(0.4,nscen))
+                                    cc = rep(0.4,nscen),
+                                    comb = rep(0,nscen))
 parameter_combinations$q1[2] = 0.73
 parameter_combinations$q1[3] = 0.93
-parameter_combinations$q2[4] = 0.0000001
-parameter_combinations$q2[5] = 0.001
+parameter_combinations$q2[4] = 0.00002
+parameter_combinations$q2[5] = 0.2
 parameter_combinations$lambdap[6] = 0.25
 parameter_combinations$lambdap[7] = 0.75
 parameter_combinations$cc[8] = 0.2
 parameter_combinations$cc[9] = 0.6
+parameter_combinations$lambdap[10] = 0.75
+parameter_combinations$q2[10] = 0.00002
+parameter_combinations$comb[10] = 0.00002
+parameter_combinations$cc[10] = 0.2
+parameter_combinations$q1[10] = 0.93
+parameter_combinations$lambdap[11] = 0.75
+parameter_combinations$q2[11] = 0.0000002
+parameter_combinations$comb[11] = 0.0000002
+parameter_combinations$cc[11] = 0.2
+parameter_combinations$q1[11] = 0.93
 sensvars = unique(colnames(parameter_combinations))
-sensvarnames = c('q_1','q_2','\\gamma_1','\\eta')
+sensvarnames = c('q_1','q_2','\\gamma_1','\\eta','q_2')
 plotdatalist = list()
 for(rv in 1:nrow(parameter_combinations)){
   # cat(paste0('Parameter combination ',rv,' out of ',nrow(parameter_combinations),'\n'))

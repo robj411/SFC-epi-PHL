@@ -72,6 +72,7 @@ function build_epi(; name, NNs, Mww, Mcw, Mcc, Mcom,
     @variables total_C(t) notifications(t) C_lf(t)
     push!(eqs, total_C       ~ sum(C[i] for i in 1:n))
     push!(eqs, notifications ~ sum(det_detected[i] for i in 1:n))
+    # push!(eqs, notifications ~ total_C/Tcr)
     push!(eqs, C_lf          ~ C[1])            # workers are stratum 1
 
     if standalone

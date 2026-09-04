@@ -42,7 +42,7 @@ function build_econ2(; name,
     α1t   = scalar * α1
     α2t   = scalar * α2
     denom = 1 - α1t * (1 - θ)
-    k = 1000 # !! can generate implausible results with bad choice of k. 
+    k = 5000 # !! can generate implausible results with bad choice of k. 
     # but ifelse is not differentiable.
 
     eqs = [

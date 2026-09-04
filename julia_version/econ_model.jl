@@ -62,6 +62,9 @@ function build_econ(; name,
         cons_d ~ (α0 + α1t * Gp * (1 - θ) + α2t * H_h) / denom,
         cons_s ~ max(0, available_lf * λ - Gp),
         cons   ~ min(cons_s, cons_d),          # <-- non-smooth; see note
+        # to achieve soft min, choose large k:
+        # cons_s ~ log1p(exp(k*(available_lf*λv - Gp))) / k
+        # cons ~ -log(exp(-k*cons_s) + exp(-k*cons_d)) / k
 
         # accounting identities (SFC): output, disposable income, wealth flow
         Y      ~ cons + Gp,

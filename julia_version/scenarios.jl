@@ -74,8 +74,6 @@ println("Independent & $(round(peak_inf_ind, digits=1)) & $(Int(peak_day_ind)) &
 #  plotting functionality
 # ============================================================================
 
-gr()
-
 const C_INDEP = "#79CDCD"     # darkslategray3
 const C_INTEG = "#FF69B4"     # hotpink
 const C_SD    = "#191970"     # midnightblue
@@ -142,9 +140,8 @@ for (k, s) in enumerate(scenarios)
         econc.C_lf          ~ epic.C_lf,
     ]
 
-    # figures (not sure why name var is different)
-    sys = structural_simplify(compose(ODESystem(conns, t; name = Symbol("fig$k")), epic, econc))
-    sol = solve(ODEProblem(sys, [], tspan;
+    local sys = structural_simplify(compose(ODESystem(conns, t; name = Symbol("cpl$k")), epic, econc))
+    local sol = solve(ODEProblem(sys, [], tspan;
                 guesses = [econc.Y => y0, econc.cons => cons0, econc.scalar => 1.0]), FBDF())
 
     ps = panels(series(sol, epic, econc), indep_Conly)
@@ -153,10 +150,6 @@ for (k, s) in enumerate(scenarios)
                )
     savefig(fig, joinpath(@__DIR__, "figures", "model2_scenario_$k.png"))
 
-    # values (not sure why name var is different)
-    sys = structural_simplify(compose(ODESystem(conns, t; name = Symbol("cpl$k")), epic, econc))
-    sol = solve(ODEProblem(sys, [], tspan;
-                guesses = [econc.Y => y0, econc.cons => cons0, econc.scalar => 1.0]), FBDF())
 
     local ai   = allinf(sol, epic)
     Yint = [sol(d, idxs = econc.Y) for d in days]

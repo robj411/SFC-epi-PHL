@@ -1,6 +1,9 @@
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t
 using OrdinaryDiffEq        # solvers (FBDF / Rodas5 handle the DAE)
+using Plots
+gr()
+
 
 include("epi_model.jl")
 include("econ_model.jl")

@@ -42,6 +42,8 @@ function build_econ2(; name,
     α1t   = scalar * α1
     α2t   = scalar * α2
     denom = 1 - α1t * (1 - θ)
+    k = 1000 # !! can generate implausible results with bad choice of k. 
+    # but ifelse is not differentiable.
 
     eqs = [
         scalar       ~ q1p + (1 - q1p) / (1 + q2p * notifications),
@@ -51,7 +53,11 @@ function build_econ2(; name,
         cons_s ~ max(0, available_lf * λv - Gp),                    ## CHANGED: λv, the state
         # ifelse (not min) so MTK can differentiate through the switch
         # branch-wise when it forms D(Y) below:
-        cons   ~ ifelse(cons_s < cons_d, cons_s, cons_d),          ## CHANGED
+        # cons   ~ ifelse(cons_s < cons_d, cons_s, cons_d),          ## CHANGED
+        # to achieve soft min, choose large k:
+        # cons_s ~ log1p(exp(k*(available_lf*λv - Gp))) / k,
+        cons ~ -log(exp(-k*cons_s) + exp(-k*cons_d)) / k,
+
 
         Y      ~ cons + Gp,
         YD     ~ Y * (1 - θ),
